@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Мои Записи</title>
+    <style>
+        /* --- ПЕРЕМЕННЫЕ ДЛЯ ТЕМ --- */
+        :root {
+            --bg: #f4f4f9;
+            --text: #333;
+            --header: #2c3e50;
+            --card-bg: #ffffff;
+            --border: #eee;
+            --primary: #3498db;
+            --primary-dark: #2980b9;
+            --accent: #e67e22;
+            --danger: #e74c3c;
+            --success: #27ae60;
+            --nav-bg: #ffffff;
+            --nav-text: #7f8c8d;
+            --nav-active: #3498db;
+            --input-bg: #ffffff;
+            --icon-filter: none;
+        }
+
+        /* ТЕМА 2: ТЕМНАЯ */
+        body.theme-dark {
+            --bg: #121212;
+            --text: #e0e0e0;
+            --header: #ffffff;
+            --card-bg: #1e1e1e;
+            --border: #333;
+            --primary: #4a90e2;
+            --primary-dark: #357abd;
+            --accent: #f39c12;
+            --danger: #e74c3c;
+            --success: #2ecc71;
+            --nav-bg: #1e1e1e;
+            --nav-text: #888;
+            --nav-active: #4a90e2;
+            --input-bg: #2d2d2d;
+            --icon-filter: invert(1); /* Инвертируем иконки для темной темы */
+        }
+
+        /* ТЕМА 3: ТРЕНДОВАЯ (Пастель) */
+        body.theme-trend {
+            --bg: #f0fdfa; 
+            --text: #334155;
+            --header: #0f766e;
+            --card-bg: #ffffff;
+            --border: #ccfbf1;
+            --primary: #14b8a6; 
+            --primary-dark: #0f766e;
+            --accent: #fb923c;
+            --danger: #ef4444;
+            --success: #10b981;
+            --nav-bg: #ffffff;
+            --nav-text: #64748b;
+            --nav-active: #14b8a6;
+            --input-bg: #ffffff;
+            --icon-filter: hue-rotate(130deg);
+        }
+
+        /* ТЕМА 4: ЛАВАНДОВАЯ */
+        body.theme-lavender {
+            --bg: #f5f3ff;
+            --text: #3730a3;
+            --header: #4c1d95;
+            --card-bg: #ffffff;
+            --border: #e0e7ff;
+            --primary: #8b5cf6;
+            --primary-dark: #6d28d9;
+            --accent: #ec4899;
+            --danger: #ef4444;
+            --success: #10b981;
+            --nav-bg: #ffffff;
+            --nav-text: #6b7280;
+            --nav-active: #8b5cf6;
+            --input-bg: #ffffff;
+            --icon-filter: hue-rotate(230deg);
+        }
+
+        /* ТЕМА 5: ГРАФИТ */
+        body.theme-graphite {
+            --bg: #111827;
+            --text: #d1d5db;
+            --header: #f9fafb;
+            --card-bg: #1f2937;
+            --border: #374151;
+            --primary: #f59e0b;
+            --primary-dark: #d97706;
+            --accent: #fbbf24;
+            --danger: #ef4444;
+            --success: #10b981;
+            --nav-bg: #1f2937;
+            --nav-text: #9ca3af;
+            --nav-active: #f59e0b;
+            --input-bg: #374151;
+            --icon-filter: sepia(1) hue-rotate(10deg) saturate(3);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        body { background-color: var(--bg); color: var(--text); padding: 15px; padding-bottom: 70px; transition: background 0.3s, color 0.3s; }
+        header { text-align: center; margin-bottom: 20px; color: var(--header); }
+        h2 { font-size: 1.2rem; margin-bottom: 10px; }
+        
+        .days-grid { display: flex; flex-direction: column; gap: 10px; margin-bottom: 30px; }
+        .day-card { background: var(--card-bg); padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); cursor: pointer; transition: transform 0.1s; border: 1px solid var(--border); }
+        .day-card:active { transform: scale(0.98); }
+        .day-title { font-weight: bold; color: var(--primary); margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 5px; display: flex; justify-content: space-between; }
+        
+        /* Модальные окна */
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: var(--card-bg); color: var(--text); padding: 20px; border-radius: 12px; width: 90%; max-width: 500px; position: relative; max-height: 90vh; overflow-y: auto; border: 1px solid var(--border); }
+        .close-btn { position: absolute; top: 10px; right: 15px; font-size: 24px; cursor: pointer; color: var(--nav-text); }
+        
+        .records-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+        .day-record-card { background: var(--bg); padding: 15px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; border: 1px solid var(--border); }
+        .day-record-info strong { display: block; font-size: 1.1rem; color: var(--header); }
+        .day-record-info span { font-size: 0.9rem; color: var(--nav-text); }
+        .day-record-time { font-size: 1.2rem; font-weight: bold; color: var(--accent); margin-right: 15px; }
+        .remind-btn { background: var(--bg); color: var(--success); border-radius: 50%; width: 28px; height: 28px; padding: 0; margin-right: 5px; font-size: 14px; border: 1px solid var(--border); cursor: pointer; }
+        .delete-btn { background: var(--bg); color: var(--danger); border-radius: 50%; width: 28px; height: 28px; padding: 0; font-size: 14px; border: 1px solid var(--border); cursor: pointer; }
+
+        .add-record { background: var(--bg); padding: 15px; border-radius: 10px; border: 1px solid var(--border); margin-top: 15px; }
+        form { display: flex; flex-direction: column; gap: 10px; }
+        input, textarea { padding: 10px; border: 1px solid var(--border); border-radius: 5px; font-size: 16px; width: 100%; background: var(--input-bg); color: var(--text); }
+        button { padding: 12px; background-color: var(--primary); color: #fff; border: none; border-radius: 5px; font-size: 16px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+        button:active { background-color: var(--primary-dark); }
+        .hidden { display: none !important; }
+        
+        /* НИЖНЕЕ МЕНЮ С ИКОНКАМИ */
+        .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background: var(--nav-bg); display: flex; justify-content: space-around; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); z-index: 900; border-top: 1px solid var(--border); }
+        .nav-btn { background: none; border: none; color: var(--nav-text); font-size: 0.8rem; padding: 10px 5px; flex-grow: 1; font-weight: normal; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .nav-btn.active { color: var(--nav-active); font-weight: bold; }
+        
+        /* ИКОНКИ */
+        .nav-icon { font-size: 1.2rem; transition: filter 0.3s; filter: var(--icon-filter); }
+        /* Спецсимволы для разных тем (через CSS content) */
+        body.theme-trend .nav-btn[data-icon="schedule"] .nav-icon::before { content: "📅"; }
+        body.theme-dark .nav-btn[data-icon="schedule"] .nav-icon::before { content: "🌙"; }
+        body.theme-lavender .nav-btn[data-icon="schedule"] .nav-icon::before { content: "🔮"; }
+        body.theme-graphite .nav-btn[data-icon="schedule"] .nav-icon::before { content: "🖤"; }
+
+        .calendar-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .calendar-controls button { width: 40px; background: var(--card-bg); color: var(--text); border: 1px solid var(--border); }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+        .cal-day { background: var(--card-bg); padding: 5px; text-align: center; border-radius: 5px; font-size: 0.9rem; min-height: 50px; cursor: pointer; border: 1px solid var(--border); }
+        .cal-day.has-records { border: 2px solid var(--primary); font-weight: bold; color: var(--primary); }
+        .cal-day.today { border: 2px solid var(--danger); }
+        
+        .settings-card { background: var(--card-bg); padding: 20px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border: 1px solid var(--border); }
+        .client-card { background: var(--card-bg); padding: 15px; border-radius: 10px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); cursor: pointer; border: 1px solid var(--border); }
+        .client-card:active { transform: scale(0.98); }
+        .empty-text { color: var(--nav-text); font-size: 0.9rem; font-style: italic; text-align: center; margin-top: 20px; }
+        .view { display: none; }
+        .view.active { display: block; }
+        
+        .history-item { background: var(--bg); padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 0.95rem; border: 1px solid var(--border); }
+        .history-item strong { color: var(--accent); margin-right: 10px; }
+
+        /* Стили для выбора темы */
+        .theme-selector { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 10px; }
+        .theme-option { padding: 10px; border-radius: 8px; text-align: center; cursor: pointer; border: 2px solid transparent; font-weight: bold; transition: border 0.2s; background: var(--input-bg); }
+        .theme-option.active { border-color: var(--primary); }
+    </style>
+</head>
+<body class="theme-classic">
+
+    <!-- Главный экран (Неделя) -->
+    <div id="view-schedule" class="view active">
+        <header><h1>Текущая неделя</h1></header>
+        <main><div id="days-container" class="days-grid" style="padding: 0 15px;"></div></main>
+    </div>
+
+    <!-- Экран Календаря -->
+    <div id="view-calendar" class="view">
+        <header><h1>Календарь</h1></header>
+        <main>
+            <div class="calendar-controls" style="padding: 0 15px;">
+                <button id="prev-month">◀</button>
+                <h2 id="current-month-label"></h2>
+                <button id="next-month">▶</button>
+            </div>
+            <div id="calendar-grid" class="calendar-grid" style="padding: 0 15px;"></div>
+        </main>
+    </div>
+
+    <!-- Экран Клиентов -->
+    <div id="view-clients" class="view">
+        <header><h1>Мои клиенты</h1></header>
+        <main><div id="clients-list-container" class="clients-list" style="padding: 0 15px;"></div></main>
+    </div>
+
+    <!-- Экран Настроек -->
+    <div id="view-settings" class="view">
+        <header><h1>Доход и Настройки</h1></header>
+        <main>
+            <div class="settings-card" style="margin: 0 15px 20px 15px;">
+                <h2>Оформление</h2>
+                <div class="theme-selector">
+                    <div class="theme-option theme-classic active" onclick="setTheme('theme-classic')">Классика</div>
+                    <div class="theme-option theme-dark" onclick="setTheme('theme-dark')">Тёмная</div>
+                    <div class="theme-option theme-trend" onclick="setTheme('theme-trend')">Тренд</div>
+                    <div class="theme-option theme-lavender" onclick="setTheme('theme-lavender')">Лаванда</div>
+                    <div class="theme-option theme-graphite" onclick="setTheme('theme-graphite')">Графит</div>
+                </div>
+            </div>
+
+            <div class="settings-card" style="margin: 0 15px 20px 15px;">
+                <h2>Финансы</h2>
+                <input type="date" id="income-start" style="margin-bottom: 10px;">
+                <input type="date" id="income-end" style="margin-bottom: 10px;">
+                <button id="calculate-income">Посчитать</button>
+                <h3 id="income-result" style="margin-top: 15px; color: var(--success);">Итого: 0 ₽</h3>
+            </div>
+            <div class="settings-card" style="margin: 0 15px 20px 15px;">
+                <h2>Настройки</h2>
+                <p style="margin-bottom: 10px;">Занято памяти: <strong id="storage-info">0 КБ</strong></p>
+                <button id="clear-cache" style="background-color: var(--danger);">Очистить все данные</button>
+            </div>
+        </main>
+    </div>
+
+    <!-- Нижнее меню (с иконками, которые меняются) -->
+    <nav class="bottom-nav">
+        <button onclick="switchTab('schedule')" class="nav-btn active" id="nav-schedule" data-icon="schedule">
+            <span class="nav-icon">📅</span>Записи
+        </button>
+        <button onclick="switchTab('calendar')" class="nav-btn" id="nav-calendar" data-icon="calendar">
+            <span class="nav-icon">🗓</span>Месяц
+        </button>
+        <button onclick="switchTab('clients')" class="nav-btn" id="nav-clients" data-icon="clients">
+            <span class="nav-icon">👥</span>Клиенты
+        </button>
+        <button onclick="switchTab('settings')" class="nav-btn" id="nav-settings" data-icon="settings">
+            <span class="nav-icon">⚙️</span>Еще
+        </button>
+    </nav>
+
+    <!-- МОДАЛЬНОЕ ОКНО ДНЯ -->
+    <div id="day-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeDayModal()">&times;</span>
+            <h2 id="modal-day-title" style="margin-bottom: 15px;">День</h2>
+            
+            <div id="day-records-list" class="records-list"></div>
+            
+            <div class="add-record">
+                <h3 style="margin-bottom: 10px;">Новая запись</h3>
+                <form id="record-form">
+                    <input type="text" id="client-name" placeholder="Имя клиента" required autocomplete="off">
+                    <input type="tel" id="client-phone" placeholder="Телефон (+7916...)" required>
+                    <input type="text" id="procedure" placeholder="Процедура" required>
+                    
+                    <label>Стоимость (₽):</label>
+                    <input type="number" id="record-price" placeholder="Например: 2500">
+                    
+                    <input type="date" id="record-date" required style="display: none;">
+                    <label>Время:</label>
+                    <input type="time" id="record-time" required>
+                    
+                    <button type="submit">Сохранить запись</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- МОДАЛЬНОЕ ОКНО ДЕТАЛЕЙ ЗАПИСИ -->
+    <div id="record-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeRecordModal()">&times;</span>
+            <h2 id="modal-client-name">Имя клиента</h2>
+            <div id="record-view-mode">
+                <p><strong>Процедура:</strong> <span id="modal-procedure"></span></p>
+                <p><strong>Дата и время:</strong> <span id="modal-datetime"></span></p>
+                <p><strong>Телефон:</strong> <span id="modal-phone"></span></p>
+                <hr style="margin: 15px 0; border: 0; border-top: 1px solid var(--border);">
+                <p><strong>Комментарий:</strong> <span id="modal-comment-text">Нет</span></p>
+                <p><strong>Стоимость:</strong> <span id="modal-price-text">0 ₽</span></p>
+                <button onclick="toggleEditRecord(true)" style="margin-top: 15px; background-color: var(--accent);">Редактировать</button>
+            </div>
+
+            <!-- Форма редактирования записи -->
+            <div id="record-edit-mode" class="hidden">
+                <input type="text" id="edit-procedure" placeholder="Процедура">
+                <label style="margin-top: 5px; display:block;">Время:</label>
+                <input type="time" id="edit-time">
+                <label style="margin-top: 5px; display:block;">Стоимость (₽):</label>
+                <input type="number" id="edit-price">
+                <label style="margin-top: 5px; display:block;">Комментарий:</label>
+                <textarea id="edit-comment" rows="3"></textarea>
+                <div style="display:flex; gap:10px; margin-top:10px;">
+                    <button onclick="saveEditRecord()" style="background-color: var(--success); flex:1;">Сохранить</button>
+                    <button onclick="toggleEditRecord(false)" style="background-color: var(--nav-text); flex:1;">Отмена</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- МОДАЛЬНОЕ ОКНО КЛИЕНТА -->
+    <div id="client-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-btn" onclick="document.getElementById('client-modal').classList.add('hidden')">&times;</span>
+            <h2 id="client-modal-title">Имя клиента</h2>
+            <div id="client-view-mode">
+                <p><strong>Телефон:</strong> <span id="client-modal-phone"></span></p>
+                <button onclick="toggleEditClient(true)" style="margin-top: 10px; background-color: var(--accent); padding: 8px; font-size: 14px;">Редактировать клиента</button>
+                <hr style="margin: 15px 0; border: 0; border-top: 1px solid var(--border);">
+                <h3>История посещений:</h3>
+                <div id="client-history" style="margin-top: 10px;"></div>
+            </div>
+
+            <!-- Форма редактирования клиента -->
+            <div id="client-edit-mode" class="hidden">
+                <label>Имя:</label>
+                <input type="text" id="edit-client-name">
+                <label style="margin-top: 10px; display:block;">Телефон:</label>
+                <input type="tel" id="edit-client-phone">
+                <div style="display:flex; gap:10px; margin-top:15px;">
+                    <button onclick="saveEditClient()" style="background-color: var(--success); flex:1;">Сохранить</button>
+                    <button onclick="toggleEditClient(false)" style="background-color: var(--nav-text); flex:1;">Отмена</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'beauty_app_records';
+        const CLIENTS_KEY = 'beauty_app_clients';
+        const THEME_KEY = 'beauty_app_theme';
+
+        function getRecords() { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+        function saveRecords(records) { localStorage.setItem(STORAGE_KEY, JSON.stringify(records)); }
+        function getClients() { return JSON.parse(localStorage.getItem(CLIENTS_KEY) || '[]'); }
+        function saveClients(clients) { localStorage.setItem(CLIENTS_KEY, JSON.stringify(clients)); }
+
+        let currentDayDate = ''; 
+        let currentEditingRecordId = null;
+        let currentEditingClientName = null;
+
+        // --- СМЕНА ТЕМЫ ---
+        window.setTheme = function(themeClass) {
+            document.body.className = themeClass;
+            localStorage.setItem(THEME_KEY, themeClass);
+            
+            document.querySelectorAll('.theme-option').forEach(el => el.classList.remove('active'));
+            const activeTheme = document.querySelector('.theme-option.' + themeClass);
+            if(activeTheme) activeTheme.classList.add('active');
+        }
+
+        function loadTheme() {
+            const savedTheme = localStorage.getItem(THEME_KEY) || 'theme-classic';
+            document.body.className = savedTheme;
+            const themeEl = document.querySelector('.theme-option.' + savedTheme);
+            if(themeEl) themeEl.classList.add('active');
+        }
+
+        // Переключение вкладок
+        window.switchTab = function(tabId) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            
+            document.getElementById('view-' + tabId).classList.add('active');
+            document.getElementById('nav-' + tabId).classList.add('active');
+            
+            if (tabId === 'clients') renderClients();
+            if (tabId === 'calendar') renderCalendar();
+            if (tabId === 'settings') updateStorageInfo();
+            if (tabId === 'schedule') renderWeek();
+        };
+
+        // --- НЕДЕЛЯ ---
+        function renderWeek() {
+            const daysContainer = document.getElementById('days-container');
+            daysContainer.innerHTML = ''; 
+            const records = getRecords(); 
+            const today = new Date();
+            const day = today.getDay();
+            const diff = today.getDate() - day + (day === 0 ? -6 : 1); 
+            const startOfWeek = new Date(today.setDate(diff));
+
+            for (let i = 0; i < 7; i++) {
+                const currentDate = new Date(startOfWeek);
+                currentDate.setDate(startOfWeek.getDate() + i);
+                
+                const dateTitle = currentDate.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short' });
+                const dateString = currentDate.toISOString().split('T')[0];
+                const dayRecords = records.filter(r => r.date === dateString);
+                
+                const dayCard = document.createElement('div');
+                dayCard.className = 'day-card';
+                dayCard.onclick = function() { openDayModal(dateString, dateTitle); };
+                
+                dayCard.innerHTML = `
+                    <div class="day-title">
+                        <span>${dateTitle}</span>
+                        <span>${dayRecords.length > 0 ? dayRecords.length + ' зап.' : ''}</span>
+                    </div>`;
+                daysContainer.appendChild(dayCard);
+            }
+        }
+
+        function openDayModal(dateStr, title) {
+            currentDayDate = dateStr;
+            document.getElementById('modal-day-title').textContent = title;
+            document.getElementById('day-modal').classList.remove('hidden');
+            
+            const form = document.getElementById('record-form');
+            form.reset();
+            document.getElementById('record-date').value = dateStr;
+            renderDayRecords();
+        }
+
+        window.closeDayModal = function() {
+            document.getElementById('day-modal').classList.add('hidden');
+            renderWeek(); 
+            if(document.getElementById('view-calendar').classList.contains('active')) renderCalendar(); 
+        }
+
+        function renderDayRecords() {
+            const records = getRecords();
+            const dayRecords = records.filter(r => r.date === currentDayDate).sort((a, b) => a.time.localeCompare(b.time));
+            const listContainer = document.getElementById('day-records-list');
+            listContainer.innerHTML = '';
+
+            if (dayRecords.length === 0) {
+                listContainer.innerHTML = '<p class="empty-text">Записей нет</p>';
+            } else {
+                dayRecords.forEach(record => {
+                    const card = document.createElement('div');
+                    card.className = 'day-record-card';
+                    card.innerHTML = `
+                        <div style="display:flex; align-items:center; flex-grow: 1;" onclick="openDetails('${record.id}')">
+                            <span class="day-record-time">${record.time}</span>
+                            <div class="day-record-info"><strong>${record.name}</strong><span>${record.procedure}</span></div>
+                        </div>
+                        <div>
+                            <button class="remind-btn" onclick="remindClient('${record.id}', event)">🔔</button>
+                            <button class="delete-btn" onclick="deleteRecord('${record.id}', event)">✕</button>
+                        </div>`;
+                    listContainer.appendChild(card);
+                });
+            }
+        }
+
+        document.getElementById('record-form').onsubmit = function(e) {
+            e.preventDefault(); 
+            const newRecord = {
+                id: Date.now().toString(),
+                name: document.getElementById('client-name').value,
+                phone: document.getElementById('client-phone').value,
+                procedure: document.getElementById('procedure').value,
+                date: currentDayDate, 
+                time: document.getElementById('record-time').value,
+                comment: '', 
+                price: document.getElementById('record-price').value 
+            };
+            
+            const records = getRecords();
+            records.push(newRecord); 
+            saveRecords(records);    
+            
+            let clients = getClients();
+            const existing = clients.find(c => c.name.toLowerCase() === newRecord.name.toLowerCase());
+            if (existing) { existing.phone = newRecord.phone; } 
+            else { clients.push({ name: newRecord.name, phone: newRecord.phone }); }
+            saveClients(clients);
+            setupClientAutocomplete();
+            
+            this.reset();      
+            document.getElementById('record-date').value = currentDayDate;
+            
+            renderDayRecords(); 
+            renderWeek();       
+        };
+
+        window.deleteRecord = function(id, event) {
+            if (event) event.stopPropagation();
+            if (confirm('Удалить эту запись?')) {
+                saveRecords(getRecords().filter(r => r.id !== id));
+                renderDayRecords(); 
+                renderWeek(); 
+            }
+        };
+
+        window.remindClient = async function(id, event) {
+            if (event) event.stopPropagation();
+            const record = getRecords().find(r => r.id === id);
+            if (!record) return;
+            const messageText = `Здравствуйте, ${record.name}! Напоминаем, что вы записаны на "${record.procedure}" ${record.date} в ${record.time}. Ждем вас!`;
+            if (navigator.share) {
+                await navigator.share({ title: 'Напоминание', text: messageText }).catch(()=>{});
+            } else {
+                navigator.clipboard.writeText(messageText);
+                alert('Текст скопирован!');
+            }
+        };
+
+        // --- РЕДАКТИРОВАНИЕ ЗАПИСИ ---
+        window.openDetails = function(id) {
+            const record = getRecords().find(r => r.id === id);
+            if (!record) return;
+            currentEditingRecordId = id;
+            
+            document.getElementById('modal-client-name').textContent = record.name;
+            document.getElementById('modal-procedure').textContent = record.procedure;
+            document.getElementById('modal-datetime').textContent = `${record.date} в ${record.time}`;
+            document.getElementById('modal-phone').textContent = record.phone;
+            document.getElementById('modal-comment-text').textContent = record.comment || 'Нет';
+            document.getElementById('modal-price-text').textContent = record.price ? record.price + ' ₽' : 'Не указана';
+            
+            document.getElementById('edit-procedure').value = record.procedure;
+            document.getElementById('edit-time').value = record.time;
+            document.getElementById('edit-price').value = record.price || '';
+            document.getElementById('edit-comment').value = record.comment || '';
+
+            toggleEditRecord(false);
+            document.getElementById('record-modal').classList.remove('hidden'); 
+        };
+
+        window.toggleEditRecord = function(showEdit) {
+            document.getElementById('record-view-mode').classList.toggle('hidden', showEdit);
+            document.getElementById('record-edit-mode').classList.toggle('hidden', !showEdit);
+        }
+
+        window.saveEditRecord = function() {
+            let records = getRecords();
+            const idx = records.findIndex(r => r.id === currentEditingRecordId);
+            if (idx !== -1) {
+                records[idx].procedure = document.getElementById('edit-procedure').value;
+                records[idx].time = document.getElementById('edit-time').value;
+                records[idx].price = document.getElementById('edit-price').value;
+                records[idx].comment = document.getElementById('edit-comment').value;
+                saveRecords(records);
+                
+                closeRecordModal();
+                renderDayRecords();
+                renderWeek();
+            }
+        }
+
+        window.closeRecordModal = function() {
+            document.getElementById('record-modal').classList.add('hidden');
+        }
+
+        // --- КЛИЕНТЫ ---
+        function renderClients() {
+            const clients = getClients(), container = document.getElementById('clients-list-container');
+            if (clients.length === 0) return container.innerHTML = '<p class="empty-text">Список пуст.</p>';
+            container.innerHTML = clients.map(c => `
+                <div class="client-card" onclick="openClientHistory('${c.name}')">
+                    <strong>${c.name}</strong>
+                    <span>📞 ${c.phone}</span>
+                </div>
+            `).join('');
+        }
+
+        window.openClientHistory = function(clientName) {
+            currentEditingClientName = clientName;
+            const clients = getClients();
+            const client = clients.find(c => c.name === clientName);
+            if (!client) return;
+
+            document.getElementById('client-modal-title').textContent = client.name;
+            document.getElementById('client-modal-phone').textContent = client.phone;
+            
+            document.getElementById('edit-client-name').value = client.name;
+            document.getElementById('edit-client-phone').value = client.phone;
+
+            const records = getRecords().filter(r => r.name === clientName);
+            records.sort((a, b) => b.date.localeCompare(a.date));
+            
+            const historyContainer = document.getElementById('client-history');
+            if (records.length === 0) {
+                historyContainer.innerHTML = '<p class="empty-text">Посещений пока нет.</p>';
+            } else {
+                historyContainer.innerHTML = records.map(r => `
+                    <div class="history-item">
+                        <strong>${r.date}</strong> в ${r.time} <br>
+                        ${r.procedure} ${r.price ? '— ' + r.price + ' ₽' : ''}
+                    </div>
+                `).join('');
+            }
+
+            toggleEditClient(false);
+            document.getElementById('client-modal').classList.remove('hidden');
+        }
+
+        window.toggleEditClient = function(showEdit) {
+            document.getElementById('client-view-mode').classList.toggle('hidden', showEdit);
+            document.getElementById('client-edit-mode').classList.toggle('hidden', !showEdit);
+        }
+
+        window.saveEditClient = function() {
+            const newName = document.getElementById('edit-client-name').value;
+            const newPhone = document.getElementById('edit-client-phone').value;
+            
+            let clients = getClients();
+            const clientIdx = clients.findIndex(c => c.name === currentEditingClientName);
+            if (clientIdx !== -1) {
+                clients[clientIdx].name = newName;
+                clients[clientIdx].phone = newPhone;
+                saveClients(clients);
+            }
+
+            let records = getRecords();
+            records.forEach(r => {
+                if (r.name === currentEditingClientName) {
+                    r.name = newName;
+                    r.phone = newPhone;
+                }
+            });
+            saveRecords(records);
+
+            currentEditingClientName = newName;
+            document.getElementById('client-modal').classList.add('hidden');
+            renderClients();
+            setupClientAutocomplete();
+            renderWeek();
+        }
+
+        // --- АВТОЗАПОЛНЕНИЕ ---
+        function setupClientAutocomplete() {
+            const clients = getClients();
+            let datalist = document.getElementById('clients-list');
+            if (!datalist) {
+                datalist = document.createElement('datalist'); datalist.id = 'clients-list';
+                document.body.appendChild(datalist);
+                document.getElementById('client-name').setAttribute('list', 'clients-list');
+            }
+            datalist.innerHTML = clients.map(c => `<option value="${c.name}">`).join('');
+        }
+
+        document.getElementById('client-name').addEventListener('input', function() {
+            const found = getClients().find(c => c.name.toLowerCase() === this.value.toLowerCase());
+            if (found) document.getElementById('client-phone').value = found.phone; 
+        });
+
+        // --- КАЛЕНДАРЬ ---
+        let calendarDate = new Date();
+        document.getElementById('prev-month').onclick = function() { calendarDate.setMonth(calendarDate.getMonth() - 1); renderCalendar(); };
+        document.getElementById('next-month').onclick = function() { calendarDate.setMonth(calendarDate.getMonth() + 1); renderCalendar(); };
+
+        function renderCalendar() {
+            const year = calendarDate.getFullYear(), month = calendarDate.getMonth();
+            document.getElementById('current-month-label').textContent = calendarDate.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
+            const grid = document.getElementById('calendar-grid');
+            grid.innerHTML = '';
+            const records = getRecords();
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const offset = firstDay === 0 ? 6 : firstDay - 1;
+            for (let i = 0; i < offset; i++) grid.innerHTML += `<div></div>`;
+            for (let i = 1; i <= daysInMonth; i++) {
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+                const hasRec = records.some(r => r.date === dateStr);
+                const isToday = dateStr === new Date().toISOString().split('T')[0];
+                
+                const dayEl = document.createElement('div');
+                dayEl.className = `cal-day ${hasRec ? 'has-records' : ''} ${isToday ? 'today' : ''}`;
+                dayEl.innerHTML = `<span>${i}</span>${hasRec ? '<span style="font-size:10px;">•</span>' : ''}`;
+                dayEl.onclick = function() {
+                    const title = new Date(dateStr).toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
+                    openDayModal(dateStr, title);
+                };
+                grid.appendChild(dayEl);
+            }
+        }
+
+        // --- НАСТРОЙКИ ---
+        document.getElementById('calculate-income').onclick = function() {
+            const start = document.getElementById('income-start').value, end = document.getElementById('income-end').value;
+            if (!start || !end) return alert('Выберите даты!');
+            let sum = 0;
+            getRecords().forEach(r => { if (r.date >= start && r.date <= end && r.price) sum += Number(r.price); });
+            document.getElementById('income-result').textContent = `Итого: ${sum.toLocaleString('ru-RU')} ₽`;
+        };
+
+        function updateStorageInfo() {
+            let totalBytes = 0;
+            for (let i = 0; i < localStorage.length; i++) totalBytes += localStorage.getItem(localStorage.key(i)).length * 2;
+            document.getElementById('storage-info').textContent = `${(totalBytes / 1024).toFixed(2)} КБ`;
+        }
+
+        document.getElementById('clear-cache').onclick = function() {
+            if (confirm('ВНИМАНИЕ! Удалить все данные?')) { localStorage.clear(); location.reload(); }
+        };
+
+        // --- ЗАПУСК ---
+        loadTheme();
+        setupClientAutocomplete();
+        renderWeek();
+    </script>
+</body>
+</html>
