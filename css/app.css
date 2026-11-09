@@ -1,0 +1,208 @@
+/* app.css — каркас и компоненты интерфейса.
+   Перенесено из макета (макет/css/app.css) без изменений по существу:
+   каркас .phone/.app/.screens, шапка, неделя, карточки записей, клиенты,
+   отчёт, темы, нижнее меню, шиты, поля формы, тумблер, тост. */
+/* ── каркас: рамка телефона — жёсткая колонка фиксированной высоты ──
+   max-height:calc(100% - 48px) — страховка для невысоких окон предпросмотра:
+   при обычной высоте рамка остаётся прежней 390×844 со скруглениями и тенью,
+   а на низком окне не обрезается снизу (документ больше не прокручивается). */
+.phone{width:390px;height:844px;max-height:calc(100% - 48px);margin:24px auto;background:var(--surface);border-radius:44px;
+  box-shadow:0 30px 70px rgba(0,0,0,.28),0 0 0 10px #1a1a1c,0 0 0 12px #333;overflow:hidden;position:relative;
+  display:flex;flex-direction:column}
+/* .app — единственный ребёнок рамки: растягивается на её высоту и сам является
+   колонкой «шапка → экраны → меню». position:relative сохраняет систему координат
+   для .tabbar и .fab (они прижаты к .phone, а не к прокручиваемому содержимому). */
+.app{flex:1 1 auto;min-height:0;position:relative;display:flex;flex-direction:column;
+  background:var(--bg);transition:background var(--dur) var(--ease)}
+.topbar{flex:none;display:flex;align-items:center;justify-content:space-between;padding:calc(env(safe-area-inset-top) + 14px) var(--pad) 8px;background:var(--bg)}
+.brand{font-weight:660;font-size:var(--fs-h);letter-spacing:-.02em}
+/* .screens — единственная прокручиваемая область каркаса.
+   min-height:0 обязателен: без него flex-элемент не сжимается ниже содержимого,
+   внутренняя прокрутка не включается и уезжает вся страница вместе с меню. */
+.screens{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;padding:4px var(--pad) 150px;scrollbar-width:thin}
+.screen{display:none;flex-direction:column;gap:14px;animation:up var(--dur) var(--ease)}
+.screen.is-active{display:flex}
+
+/* календарь месяца: заголовок с месяцем, дни недели и сетка 6×7 */
+.cal{display:flex;flex-direction:column;gap:8px}
+.cal-head{display:flex;align-items:center;gap:6px}
+.cal-title{flex:1;text-align:center;font-weight:660;font-size:var(--fs-h);min-height:44px;
+  display:flex;align-items:center;justify-content:center}
+.cal-dow{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;color:var(--muted);
+  font-size:11px;font-weight:600;text-align:center}
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.day{min-height:44px;border-radius:var(--r-sm);background:var(--surface);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:2px;box-shadow:var(--shadow-soft);transition:transform var(--dur) var(--ease),background var(--dur) var(--ease)}
+.day .dn{font-size:15px;font-weight:640}
+.day .dot{width:5px;height:5px;border-radius:50%;background:var(--accent);opacity:0}
+.day.is-other .dn{color:var(--muted);opacity:.6}
+.day.has-rec .dot{opacity:.55}
+.day.is-sel{background:var(--accent);box-shadow:0 6px 16px color-mix(in srgb,var(--accent) 35%,transparent)}
+.day.is-sel .dn{color:var(--accent-on)}
+.day.is-sel .dot{background:var(--accent-on);opacity:.9}
+.day:active{transform:scale(.95)}
+.icon-btn{width:44px;height:44px;display:grid;place-items:center;border-radius:14px;background:var(--surface);
+  color:var(--text);box-shadow:var(--shadow-soft);transition:transform var(--dur) var(--ease),background var(--dur) var(--ease)}
+.icon-btn:active{transform:scale(.92)}
+.chip{min-height:44px;padding:0 18px;border-radius:22px;background:var(--surface);color:var(--text);
+  font-weight:600;box-shadow:var(--shadow-soft);transition:background var(--dur) var(--ease)}
+.chip:active{background:var(--surface-2)}
+
+/* суммы */
+.hero{background:var(--surface);border-radius:var(--r-lg);padding:18px;box-shadow:var(--shadow);
+  display:flex;flex-direction:column;gap:4px}
+.hero-label{font-size:var(--fs-sm);color:var(--muted)}
+.hero-sum{display:flex;align-items:baseline;gap:6px;font-size:var(--fs-sum);font-weight:700;letter-spacing:-.03em;line-height:1.05}
+.hero-sum .rub{font-style:normal;font-size:22px;font-weight:600;color:var(--muted)}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat{background:var(--surface);border-radius:var(--r-md);padding:14px;box-shadow:var(--shadow-soft);display:flex;flex-direction:column}
+.stat b{font-size:22px;font-weight:700;letter-spacing:-.02em}
+.stat span{font-size:12px;color:var(--muted)}
+
+/* карточки записей */
+.list{display:flex;flex-direction:column;gap:10px}
+.rec{display:flex;gap:12px;background:var(--surface);border-radius:var(--r-md);padding:14px;box-shadow:var(--shadow-soft);
+  text-align:left;width:100%;min-height:44px;animation:up var(--dur) var(--ease);transition:transform var(--dur) var(--ease)}
+.rec-time{min-width:54px;display:flex;flex-direction:column;gap:2px}
+.rec-time b{font-size:17px;font-weight:680}
+.rec-time span{font-size:12px;color:var(--muted)}
+.rec-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.rec-name{font-weight:640;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rec-svc{font-size:var(--fs-sm);color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rec-side{display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;gap:8px}
+.rec-price{font-weight:680;font-size:16px;white-space:nowrap}
+.mark{font-size:11px;padding:4px 9px;border-radius:999px;white-space:nowrap;font-weight:600}
+.mark.ok{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok)}
+.mark.no{background:color-mix(in srgb,var(--danger) 14%,transparent);color:var(--danger)}
+
+/* заглушка экрана, который наполнят следующие шаги */
+.soon{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  min-height:180px;border-radius:var(--r-lg);background:var(--surface);box-shadow:var(--shadow-soft);
+  color:var(--muted);font-size:var(--fs-sm)}
+.soon b{color:var(--text);font-size:var(--fs-h);font-weight:640}
+
+/* клиенты */
+.search{display:flex;align-items:center;gap:10px;background:var(--surface);border-radius:var(--r-md);
+  padding:0 14px;height:48px;box-shadow:var(--shadow-soft)}
+.search .ic{width:20px;height:20px;color:var(--muted)}
+.search input{flex:1;height:100%}
+.client{display:flex;align-items:center;gap:12px;background:var(--surface);border-radius:var(--r-md);padding:12px 14px;
+  box-shadow:var(--shadow-soft);text-align:left;width:100%;transition:transform var(--dur) var(--ease)}
+.client:active{transform:scale(.985)}
+.avatar{width:46px;height:46px;flex:none;border-radius:50%;background:var(--accent-soft);color:var(--accent);
+  display:grid;place-items:center;font-weight:680;font-size:15px}
+.client .info{flex:1;min-width:0;display:flex;flex-direction:column}
+.client .nm{font-weight:640}
+.client .sub{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.client .sum{font-weight:660;font-size:15px;white-space:nowrap}
+.back{display:flex;align-items:center;gap:6px;min-height:44px;color:var(--muted);font-weight:600;align-self:flex-start}
+.head-client{display:flex;gap:14px;align-items:center;background:var(--surface);border-radius:var(--r-lg);padding:16px;box-shadow:var(--shadow)}
+.head-client .avatar{width:60px;height:60px;font-size:20px}
+.head-client .info{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.btn{min-height:48px;border-radius:var(--r-md);padding:0 18px;font-weight:640;display:inline-flex;align-items:center;
+  justify-content:center;gap:8px;transition:transform var(--dur) var(--ease),filter var(--dur) var(--ease)}
+.btn:active{transform:scale(.98)}
+.btn-accent{background:var(--accent);color:var(--accent-on);box-shadow:0 8px 20px color-mix(in srgb,var(--accent) 28%,transparent)}
+.btn-soft{background:var(--surface-2);color:var(--text)}
+.btn-danger{background:color-mix(in srgb,var(--danger) 14%,transparent);color:var(--danger)}
+.btn:disabled{opacity:.45}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap}
+.btn-row .btn{flex:1}
+.card{background:var(--surface);border-radius:var(--r-lg);padding:16px;box-shadow:var(--shadow-soft);display:flex;flex-direction:column;gap:10px}
+.link{color:var(--accent);font-weight:620;min-height:44px;padding:0 4px}
+.list-flat{gap:2px}
+.svc{display:flex;justify-content:space-between;gap:10px;padding:11px 0;border-bottom:1px solid var(--line);font-size:var(--fs-body)}
+.svc:last-child{border-bottom:0}
+.note{background:var(--surface-2);border-radius:var(--r-md);padding:12px 14px;font-size:var(--fs-body)}
+.history{display:flex;flex-direction:column}
+
+/* каталог услуг и мини-форма услуги в шите записи */
+.svc-row{display:flex;align-items:center;gap:10px;background:var(--surface);border-radius:var(--r-md);padding:12px 14px;
+  box-shadow:var(--shadow-soft);flex-wrap:wrap}
+.svc-info{flex:1;min-width:140px;display:flex;flex-direction:column;gap:2px}
+.svc-acts{display:flex;gap:8px}
+.mini-btn{min-height:44px;padding:0 14px;border-radius:14px;background:var(--surface-2);color:var(--text);
+  font-weight:620;font-size:var(--fs-sm);transition:transform var(--dur) var(--ease)}
+.mini-btn:active{transform:scale(.96)}
+.mini-btn.is-danger{background:color-mix(in srgb,var(--danger) 14%,transparent);color:var(--danger)}
+.mini{display:flex;flex-direction:column;gap:10px;background:var(--surface-2);border-radius:var(--r-md);padding:12px}
+.mini .field input{background:var(--surface)}
+.hint{font-style:italic;font-weight:500}
+
+/* отчёт */
+.segment{display:flex;background:var(--surface-2);border-radius:14px;padding:4px;gap:4px}
+.seg{flex:1;min-height:44px;border-radius:11px;font-weight:620;color:var(--muted);transition:background var(--dur) var(--ease),color var(--dur) var(--ease)}
+.seg.is-active{background:var(--surface);color:var(--text);box-shadow:var(--shadow-soft)}
+.bar-row{background:var(--surface);border-radius:var(--r-md);padding:12px 14px;box-shadow:var(--shadow-soft);display:flex;flex-direction:column;gap:8px}
+.bar-top{display:flex;justify-content:space-between;gap:10px;font-size:var(--fs-sm)}
+.bar{height:8px;border-radius:999px;background:var(--surface-2);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:999px;background:var(--accent);transition:width 200ms var(--ease)}
+
+/* темы */
+.themes{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.theme{display:flex;align-items:center;gap:10px;min-height:56px;padding:10px 12px;border-radius:var(--r-md);
+  background:var(--surface-2);text-align:left;transition:transform var(--dur) var(--ease)}
+.theme:active{transform:scale(.97)}
+.theme.is-on{outline:2px solid var(--accent);outline-offset:-2px}
+.swatch{width:30px;height:30px;border-radius:50%;flex:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)}
+.theme .tt{font-size:var(--fs-sm);font-weight:600}
+/* Образец палитры в переключателе тем: значения взяты из палитр css/base.css — те же,
+   что в макете (макет/js/app.js, THEMES). Цвета заданы атрибутным селектором, а не
+   инлайном из скрипта: в js/services.js цветов нет вовсе. */
+.theme[data-theme="classic"] .swatch{background:#FFFFFF}
+.theme[data-theme="dark"] .swatch{background:#121212}
+.theme[data-theme="trend"] .swatch{background:#F2F5F6}
+.theme[data-theme="lavender"] .swatch{background:#F4F1FA}
+.theme[data-theme="graphite"] .swatch{background:#EDEEF0}
+.theme[data-theme="auto"] .swatch{background:linear-gradient(135deg,#FFFFFF 50%,#121212 50%)}
+
+/* нижнее меню */
+.tabbar{position:absolute;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(4,1fr);
+  padding:8px 6px calc(env(safe-area-inset-bottom) + 10px);background:var(--surface);
+  box-shadow:0 -6px 24px rgba(0,0,0,.07)}
+.tab{min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  color:var(--muted);font-size:11px;font-weight:600;transition:color var(--dur) var(--ease)}
+.tab .ic{width:24px;height:24px}
+.tab.is-active{color:var(--accent)}
+/* круглая кнопка «+»: разметка и стили готовы, в этом шаге кнопка скрыта атрибутом hidden */
+.fab{position:absolute;right:18px;bottom:calc(env(safe-area-inset-bottom) + 78px);width:58px;height:58px;border-radius:50%;
+  background:var(--accent);color:var(--accent-on);display:grid;place-items:center;z-index:6;
+  box-shadow:0 12px 26px color-mix(in srgb,var(--accent) 40%,transparent);transition:transform var(--dur) var(--ease)}
+.fab:active{transform:scale(.93)}
+.fab .ic{width:26px;height:26px}
+
+/* шит и модалка */
+.sheet{position:relative;width:100%;max-width:390px;max-height:88%;overflow-y:auto;background:var(--bg);
+  border-radius:24px 24px 0 0;padding:16px 16px calc(env(safe-area-inset-bottom) + 20px);box-shadow:var(--shadow);
+  animation:up 200ms var(--ease)}
+@media (min-width:520px){.sheet{border-radius:24px;margin-bottom:0;animation:pop 200ms var(--ease)}
+  .modal{border-radius:20px;animation:pop 200ms var(--ease)}}
+.sheet-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.modal{position:relative;width:min(340px,calc(100% - 32px));background:var(--surface);border-radius:20px;
+  padding:18px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:10px;animation:up 200ms var(--ease)}
+.form{display:flex;flex-direction:column;gap:12px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field>span{font-size:12px;color:var(--muted);font-weight:600}
+.field input,.field select,.field textarea{min-height:48px;background:var(--surface);border-radius:14px;padding:12px 14px;
+  box-shadow:var(--shadow-soft);transition:box-shadow var(--dur) var(--ease);font-size:16px}
+.field textarea{resize:none;min-height:auto}
+.field input:focus,.field select:focus,.field textarea:focus{box-shadow:0 0 0 2px var(--accent)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.toggle-row{background:var(--surface);border-radius:14px;padding:12px 14px;box-shadow:var(--shadow-soft);min-height:56px}
+.switch{width:52px;height:32px;border-radius:999px;background:var(--surface-2);position:relative;transition:background var(--dur) var(--ease)}
+.switch i{position:absolute;top:3px;left:3px;width:26px;height:26px;border-radius:50%;background:#fff;
+  box-shadow:0 1px 4px rgba(0,0,0,.25);transition:transform var(--dur) var(--ease)}
+.switch[aria-checked="true"]{background:var(--accent)}
+.switch[aria-checked="true"] i{transform:translateX(20px)}
+.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:60;background:#16130F;color:#fff;
+  padding:12px 18px;border-radius:14px;font-size:var(--fs-sm);box-shadow:var(--shadow);animation:up 180ms var(--ease)}
+
+/* мобильный режим — приложение занимает весь экран */
+@media (max-width:519px){
+  /* 100dvh обязателен: 100vh на iPhone считает высоту без адресной строки Safari
+     и обрезает низ каркаса вместе с меню. 100vh оставлен как фолбэк для движков без dvh. */
+  .phone{width:100%;height:100vh;height:100dvh;max-height:none;margin:0;border-radius:0;box-shadow:none}
+  body{background:var(--bg)}
+  .overlay{align-items:flex-end}
+}

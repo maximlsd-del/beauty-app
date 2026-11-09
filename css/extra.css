@@ -1,0 +1,364 @@
+/* extra.css — шиты, подсказки, служебные блоки.
+   Перенесено из макета (макет/css/extra.css) по существу, но БЕЗ блоков,
+   которые относятся к Фазе 2 и 3: расходы и прибыль, чёрный список, спящие,
+   дни рождения, скидки и старые цены, сводка при открытии, напоминания,
+   выбор мессенджера, форма нового клиента. Их стили вернутся вместе с логикой. */
+
+/* ряды чипов (общий элемент выбора) */
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips .chip{flex:none}
+.chip.is-on{background:var(--accent);color:var(--accent-on);
+  box-shadow:0 6px 16px color-mix(in srgb,var(--accent) 30%,transparent)}
+
+/* стоимость и итог в шите записи */
+.total-row{background:var(--surface-2);border-radius:14px;padding:10px 14px;min-height:52px}
+.total-row>span{color:var(--muted);font-size:var(--fs-sm);font-weight:600}
+.total-sum{font-size:22px;font-weight:700;letter-spacing:-.02em}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+
+/* тап-зона тумблера ≥44 px без изменения внешнего вида (32 + 6+6) */
+.toggle-row .switch::after{content:'';position:absolute;inset:-6px;border-radius:999px}
+
+/* кнопка на всю ширину шита — тап-зона 48 px (.btn) */
+.btn-wide{width:100%}
+.toast{max-width:min(340px,calc(100% - 32px));text-align:center;line-height:1.35}
+
+/* корень горизонтальной прокрутки при открытом шите:
+   1) .sheet был объявлен только как overflow-y:auto — по спецификации overflow-x тогда
+      вычисляется в auto, и шит сам становился горизонтально прокручиваемым контейнером;
+   2) во flex/grid-цепочке .overlay → .sheet → .form → .field → select у элементов
+      действует min-width:auto, поэтому интринсик-ширина <select> (самый длинный пункт)
+      распирала содержимое шита шире экрана. */
+.sheet{overflow-x:hidden;touch-action:pan-y;overscroll-behavior:contain;max-width:min(390px,100%)}
+.sheet .form,.sheet .field,.sheet .grid2,.sheet .grid3,.sheet .mini,.sheet .btn-row,.sheet .chips{min-width:0}
+.sheet .field>input,.sheet .field>select,.sheet .field>textarea{width:100%;max-width:100%}
+/* затемнение перехватывает жест: фон не прокручивается за шитом */
+.overlay .scrim{touch-action:none}
+
+/* блокировка фоновой прокрутки, пока открыт шит (для iOS — position:fixed) */
+body.is-locked,html.is-locked{overflow:hidden}
+body.is-locked-ios{position:fixed;width:100%;left:0;right:0}
+/* прокрутка живёт в .screens, а не в документе: при открытом шите гасим именно её,
+   позиция запоминается и возвращается после закрытия. */
+.screens.is-locked{overflow:hidden}
+
+/* ═══ «Дата» и «Время» — строго на одной линии, без наложения (iOS Safari) ═══
+   Причины бага:
+   1) .grid2 задавал 1fr 1fr; в grid-цепочке у ячеек действует min-width:auto, поэтому
+      колонка не сжималась и поле уезжало за свою границу;
+   2) у input[type=date]/input[type=time] в iOS Safari свои внутренние размеры
+      (::-webkit-date-and-time-value, ::-webkit-datetime-edit) — они шире колонки;
+   3) подпись «Дата» содержит вторую строку (.hint), из-за чего поле даты стояло ниже
+      поля времени.
+   Лечим: сжимаемые колонки minmax(0,1fr), min-width:0 у ячеек, одинаковая коробка полей
+   (width/min-width/box-sizing/height/padding), одинаковая высота подписей и сброс
+   внутренних размеров WebKit. */
+.dt-row{align-items:start}
+.sheet .grid2{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.sheet .grid2>.field{min-width:0;max-width:100%}
+.dt-row>.field>span{display:block;height:32px;line-height:16px;min-width:0;overflow:hidden}
+.dt-row>.field>span .hint{display:block;font-size:10px;line-height:16px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.sheet .field>input[type=date],.sheet .field>input[type=time]{display:block;width:100%;min-width:0;
+  max-width:100%;box-sizing:border-box;height:48px;padding:0 12px;margin:0;-webkit-appearance:none;
+  appearance:none;line-height:normal;font-family:inherit;font-size:16px;color:inherit;background:var(--surface);border:0;
+  border-radius:14px;text-align:left}
+input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and-time-value{text-align:left;margin:0}
+input[type=date]::-webkit-datetime-edit,input[type=time]::-webkit-datetime-edit{padding:0}
+
+/* ═══ Подсказки под полем ввода — блоком В ПОТОКЕ ═══
+   В макете подсказки сначала были absolute-блоком, а .sheet{overflow-x:hidden} его обрезал.
+   Теперь список — обычный блок под полем: он расталкивает форму вниз и не обрезается
+   ни по горизонтали, ни по вертикали. */
+.ac-wrap{display:flex;flex-direction:column;gap:6px;min-width:0;max-width:100%}
+.ac-wrap>.field{min-width:0}
+.ac-hints{display:flex;flex-direction:column;position:static;width:100%;min-width:0;max-width:100%;
+  background:var(--surface);border-radius:var(--r-md);box-shadow:var(--shadow);overflow:hidden}
+.ac-hints[hidden]{display:none}   /* у .ac-hints свой display:flex — атрибут hidden его перебивает */
+.ac-hint{display:flex;flex-direction:column;gap:2px;min-width:0;min-height:44px;padding:10px 14px;text-align:left;
+  background:var(--surface);color:var(--text);border-bottom:1px solid var(--line);
+  transition:background var(--dur) var(--ease)}
+.ac-hint:last-child{border-bottom:0}
+.ac-hint:active{background:var(--surface-2)}
+.ac-hint-name{font-weight:620;color:var(--text)}
+.ac-hint-sub{font-size:12px;color:var(--muted)}
+/* длинное имя или телефон не растягивают подсказку и не ломают строку */
+.ac-hint-name,.ac-hint-sub{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#fClientMeta{margin:0;overflow-wrap:anywhere}
+
+/* ═══ Клиенты: список, сортировка и карточка (js/clients.js) ═══ */
+/* «был(а) …» в подстроке — самое длинное место строки: сжимаем, а не распираем карточку */
+.client .info{min-width:0}
+.client .nm{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.client .sub,#clientEmpty{overflow-wrap:anywhere}
+#clientSort{gap:8px}
+#clientSort .chip{font-size:var(--fs-sm);padding:0 14px}
+/* история записей в карточке клиента: дата · время · услуга слева, цена справа */
+.history .svc{align-items:baseline;gap:10px}
+.history .svc span{min-width:0;overflow-wrap:anywhere}
+.history .svc b{white-space:nowrap}
+.cl-meta{margin:0;overflow-wrap:anywhere}
+#clErr{margin:0}
+
+/* ═══ Шит записи: скидка, итог, подсказка к услуге ═══
+   Перенесено из макета (макет/css/extra.css). Быстрый выбор скидки — чипы
+   из общей сетки .chips, поэтому им хватает только плотности. */
+#discChips .chip{padding:0 13px;font-size:var(--fs-sm)}
+
+/* Итог — редактируемое поле: ручной ввод не перезатирается автопересчётом,
+   поэтому у поля своя коробка (min-width:0 и max-width:100% — чтобы не распирать шит)
+   и кегль 22px (не меньше 16px, значит iOS не зумит при тапе). */
+.total-edit{display:flex;align-items:baseline;gap:6px;min-width:0;max-width:100%}
+.total-edit .rub{font-style:normal;font-size:16px;font-weight:600;color:var(--muted)}
+.total-row input{display:block;width:132px;min-width:0;max-width:100%;box-sizing:border-box;height:40px;
+  padding:0 8px;margin:0;text-align:right;background:transparent;border:0;border-radius:10px;
+  font-size:22px;font-weight:700;letter-spacing:-.02em;color:var(--text);-webkit-appearance:none;appearance:none}
+.total-row input:focus{box-shadow:0 0 0 2px var(--accent)}
+/* ручной итог помечен рамкой, чтобы «замороженный» пересчёт не выглядел поломкой */
+.total-row.is-manual{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 40%,transparent)}
+#svcHint,#totalHint{margin:0}
+
+/* ═══ Карточка записи: скидка и примечание к цене ═══ */
+.rec-price .old{display:block;font-size:11px;font-weight:500;color:var(--muted);text-decoration:line-through}
+.rec-disc{align-self:flex-start;font-size:11px;font-weight:600;padding:4px 9px;border-radius:999px;
+  background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+.rec-note{display:block;font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* карточка открывает шит по тапу: роль кнопки без замены тега (в списке остаются .rec, не <button>) */
+.rec{cursor:pointer}
+.rec:active{transform:scale(.985)}
+.rec:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ═══ Каталог услуг (шаг 4): список, действия, «О приложении» ═══
+   Строки списка — .svc-row/.svc-info/.svc-acts/.mini-btn из css/app.css. Здесь только
+   снимаем у них жёсткий min-width:140px: во flex-цепочке действует min-width:auto,
+   и длинное название услуги распирало бы экран. Тап-зоны действий — 44 px (.mini-btn). */
+#svcList .svc-info{min-width:0;overflow-wrap:anywhere}
+#svcList .svc-acts{flex:none}
+/* кнопка «+ Новая услуга» в форме записи: тап-зона 44 px (.link), прижата влево */
+#fNewSvc{align-self:flex-start}
+#formSvc .btn{width:100%}
+/* «О приложении»: строки-факты в потоке, значение не сжимается и не переносится */
+.about .svc span{min-width:0;overflow-wrap:anywhere}
+.about .svc b{white-space:nowrap}
+#themeHint{margin:0}
+/* переключатель тем: сжимаемые колонки (иначе min-width:auto распирает карточку) */
+.screen .themes{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.theme,.theme .tt{min-width:0}
+.theme .tt{overflow-wrap:anywhere}
+
+/* ═══ Сохранность данных и установка (шаг 5): баннер, копия, установка ═══
+   .card и .btn задают свой display и перебивают атрибут hidden, поэтому скрытие
+   для новых блоков задано явно. Цвета — только из переменных тем; блоков вне
+   потока здесь нет, всё встаёт в колонку экрана. */
+#backupBanner[hidden],#installIntro[hidden],.backup-block [hidden]{display:none}
+
+#backupBanner{gap:12px}
+.backup-banner-head{display:flex;flex-direction:column;gap:4px;min-width:0}
+.backup-banner-head b{font-size:var(--fs-body)}
+#backupBannerText{margin:0;overflow-wrap:anywhere}
+
+/* кнопки карточек копии и установки: на узком экране встают в столбик,
+   но карточку не распирают (min-width:0 у самих кнопок) */
+#backupCard .btn-row .btn,#installCard .btn-row .btn,#installIntro .btn-row .btn{
+  flex:1 1 140px;min-width:0}
+
+.backup-msg{margin:0;overflow-wrap:anywhere}
+.backup-msg.is-err{color:var(--danger)}
+
+/* предпросмотр восстановления: вложенная карточка в потоке, без своей тени */
+.restore-preview{gap:8px;box-shadow:none;background:var(--surface-2)}
+.restore-preview b{font-size:var(--fs-body)}
+#restoreMeta,#restoreWarn{margin:0;overflow-wrap:anywhere}
+.restore-warn{color:var(--text)}
+#restoreApply,#restoreCancel{min-width:0}
+
+/* установка: шаги идут в потоке, переносы строк в инструкции сохраняются */
+.install-steps{margin:0;white-space:pre-line;overflow-wrap:anywhere}
+.install-warn{margin:0;overflow-wrap:anywhere;color:var(--text)}
+#installState,#installNote,#installMsg{margin:0;overflow-wrap:anywhere}
+#installState{font-weight:620}
+#installBtn[hidden],#installSaveCopy[hidden]{display:none}
+
+/* ═══ Расходы и отчёт (шаг 6) ═══
+   Перенесено из макета (макет/css/extra.css, блоки «расходы и отчёт») и дополнено
+   карточкой прибыли. Ни одного absolute: всё в потоке, поэтому списки не режутся
+   overflow шита и экрана. Цвета — только переменные тем (никаких литералов). */
+.exp-sum{font-weight:680;font-size:15px;white-space:nowrap}
+.neg{color:var(--danger)}
+#repToExpenses{align-self:flex-start;text-align:left}
+
+/* Прибыль — крупно и заметно: карточка шире обычной, сумма того же размера,
+   что доход (.hero-sum), рамка подсказывает знак, но подпись про убыток остаётся текстом. */
+.rep-data{display:flex;flex-direction:column;gap:14px;min-width:0}
+.profit-card{background:var(--surface);border-radius:var(--r-lg);padding:18px;display:flex;
+  flex-direction:column;gap:4px;min-width:0;
+  box-shadow:var(--shadow),inset 0 0 0 2px color-mix(in srgb,var(--ok) 35%,transparent)}
+.profit-card.is-loss{box-shadow:var(--shadow),inset 0 0 0 2px color-mix(in srgb,var(--danger) 45%,transparent)}
+.profit-note{margin:0;font-size:var(--fs-sm);color:var(--muted);overflow-wrap:anywhere}
+.profit-note.is-loss{color:var(--danger);font-weight:600}
+
+/* Сжимаемость: в строке расхода сумма и две кнопки не должны выдавливать комментарий.
+   Строка — сетка: слева категория и комментарий, справа сумма, действия — второй строкой. */
+#expList .exp-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px 10px}
+#expList .exp-row .svc-info{min-width:0;overflow-wrap:anywhere}
+#expList .exp-row .exp-sum{white-space:nowrap}
+#expList .exp-row .svc-acts{grid-column:1/-1;justify-content:flex-end;flex-wrap:wrap;min-width:0}
+#expList .exp-row .svc-info .muted{display:block;overflow-wrap:anywhere}
+#repExpCats .svc span{min-width:0;overflow-wrap:anywhere}
+#expCats .svc span{min-width:0}
+
+/* Чипы категорий и сегменты периодов: те же тап-зоны, но текст короче экрана */
+#eCats .chip{padding:0 14px;font-size:var(--fs-sm)}
+#expSeg .seg,#repSeg .seg{font-size:var(--fs-sm);padding:0 6px}
+
+/* Поля «свой период»: сжимаемые ячейки, как у даты и времени в шите записи */
+#repCustom{min-width:0}
+#repCustom .field{min-width:0;max-width:100%}
+#repCustom .field>input{width:100%;min-width:0}
+
+/* Служебные подписи в потоке, без переносов за границу карточки */
+#eCatHint,#eErr,#repDebt,#repRange,#expRange,#expEmpty{margin:0;overflow-wrap:anywhere}
+#expAdd .ic,#btnExpenses .ic{width:20px;height:20px}
+
+/* Разбивка по услугам: длинное название обрезается точками, сумма не переносится */
+#repTop .bar-top span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#repTop .bar-top b{white-space:nowrap}
+
+/* ═══════════ Напоминания и сводка (шаг 8) ═══════════
+   Сводка при открытии, метки напоминания на карточке записи и настройки «за сколько
+   напоминать». Все блоки в потоке: absolute-слой срезало бы overflow списка. Цвета —
+   только переменные тем, тап-зоны — не меньше 44px. */
+
+/* Сводка при открытии: карточка в потоке, поверх экрана при запуске.
+   [hidden] перебивает display:flex — иначе пустая карточка висела бы на экране. */
+.digest{display:flex;flex-direction:column;gap:10px;min-width:0;background:var(--surface);
+  border-radius:var(--r-md);padding:10px 10px 10px 12px;
+  box-shadow:var(--shadow-soft),inset 3px 0 0 var(--accent)}
+.digest[hidden]{display:none}
+.digest-head{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;
+  gap:10px;min-width:0}
+.digest-ic{flex:none;width:32px;height:32px;border-radius:10px;display:grid;place-items:center;
+  background:var(--accent-soft);color:var(--accent)}
+.digest-ic .ic{width:18px;height:18px}
+.digest-text{min-width:0;font-size:var(--fs-sm);font-weight:600;line-height:1.35;
+  color:var(--text);overflow-wrap:anywhere}
+.digest-x{flex:none;width:44px;height:44px;display:grid;place-items:center;border-radius:12px;
+  color:var(--muted);transition:background var(--dur) var(--ease)}
+.digest-x:active{background:var(--surface-2)}
+.digest-x .ic{width:18px;height:18px}
+.digest-list{display:flex;flex-direction:column;gap:8px;min-width:0}
+.digest-list[hidden]{display:none}
+.digest-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px;
+  min-width:0;padding-top:8px;border-top:1px solid var(--line)}
+.digest-row:first-child{padding-top:0;border-top:0}
+.digest-note{font-size:var(--fs-sm);color:var(--muted);min-width:0;overflow-wrap:anywhere}
+.digest-row .mini-btn{min-width:44px}
+
+/* Метки на карточке записи: «через N мин / сейчас / закончилась» (как в макете)
+   и шаг 8 — «пора напомнить» и «напомнила 9 ноября» */
+.tm-mark{align-self:flex-start;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.tm-mark.soon{background:var(--accent-soft);color:var(--accent)}
+.tm-mark.now{background:var(--accent);color:var(--accent-on)}
+.tm-mark.done{background:var(--surface-2);color:var(--muted)}
+.rec-due{align-self:flex-start;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;
+  white-space:nowrap;background:color-mix(in srgb,var(--danger) 14%,transparent);color:var(--danger)}
+.rec-reminded{align-self:flex-start;font-size:11px;color:var(--muted);white-space:nowrap}
+
+/* Настройки шага 8 в «Ещё»: чипы «за час / за 3 часа / за день / за 2 дня» */
+#remindChips{min-width:0}
+#remindChips .chip{padding:0 14px;font-size:var(--fs-sm)}
+
+/* ═══════════ Забота о клиентах (шаг 7) ═══════════
+   Чёрный список, спящие и дни рождения. Все блоки стоят в потоке: absolute-слой
+   срезало бы overflow шита и карточки. Цвета — только переменные тем, размеры
+   полей — 16px, тап-зоны — не меньше 44px. */
+
+/* Предупреждение о чёрном списке в форме записи: заметная плашка с причиной.
+   Сохранение записи она не блокирует — это подсказка, а не запрет. */
+.banner-danger{display:block;margin:0;padding:12px 14px;border-radius:var(--r-md);min-width:0;
+  background:color-mix(in srgb,var(--danger) 12%,transparent);color:var(--danger);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--danger) 38%,transparent);
+  font-size:var(--fs-sm);font-weight:640;overflow-wrap:anywhere}
+#fBlWarn[hidden]{display:none}
+
+/* Метки в строке клиента: ЧС, «спящий», близкий день рождения. Инлайновые, чтобы
+   имя и метки жили в одной строке и переносились вместе с ней. */
+.bl-mark,.sleep-mark,.bd-mark,.wrote-mark{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;
+  font-size:11px;font-weight:680;vertical-align:middle;white-space:nowrap}
+.bl-mark{background:color-mix(in srgb,var(--danger) 16%,transparent);color:var(--danger)}
+.sleep-mark{background:var(--surface-2);color:var(--muted)}
+.bd-mark{background:var(--accent-soft);color:var(--accent)}
+/* «писали N дн. назад» (шаг 9, рассылка): спокойная метка, чтобы список не пестрил */
+.wrote-mark{background:var(--surface-2);color:var(--muted)}
+
+/* Строка спящего клиента с кнопкой «Напомнить»: кнопка идёт ОТДЕЛЬНОЙ строкой под
+   клиентом — вложенная кнопка ломает и разметку, и тап по строке. */
+.client-wrap{display:flex;flex-direction:column;gap:6px;min-width:0}
+.client-acts{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  flex-wrap:wrap;min-width:0;padding:0 2px}
+.client-acts .mini-btn{min-width:44px}
+
+/* Блок «Скоро день рождения»: заголовок и строки клиентов с кнопкой «Поздравить» */
+#clientBdCard[hidden]{display:none}
+#clientBdCard .bd-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;
+  gap:10px;min-width:0;padding:10px 0;border-bottom:1px solid var(--line)}
+#clientBdCard .bd-row:last-child{border-bottom:0;padding-bottom:0}
+#clientBdCard .bd-row.is-today{border-radius:var(--r-md);
+  box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--accent) 40%,transparent);padding:10px}
+.bd-who{display:flex;flex-direction:column;gap:2px;min-width:0}
+.bd-nm{font-weight:640;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bd-when{font-size:var(--fs-sm);color:var(--muted);overflow-wrap:anywhere}
+#clientBdCard .mini-btn{min-width:44px}
+
+/* Поля дня рождения в карточке клиента: три сжимаемые колонки, как у даты и времени */
+#clBdRow{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)}
+#clBdRow .field,#clBdRow .field>select,#clBdRow .field>input{min-width:0;max-width:100%}
+#clBdRow .field>select,#clBdRow .field>input{font-size:16px;padding:12px 10px}
+#clBdHint{margin:0;overflow-wrap:anywhere}
+#clBlReasonWrap[hidden]{display:none}
+#clBlReasonWrap,#clBlReason{min-width:0}
+
+/* Лист напоминания и поздравления: текст сообщения виден целиком и не выезжает
+   за карточку — переносится по словам, длинные ссылки тоже. */
+.msg-preview{background:var(--surface-2);border-radius:var(--r-md);padding:12px 14px;
+  font-size:var(--fs-body);line-height:1.45;min-width:0;overflow-wrap:anywhere;white-space:pre-wrap}
+#msgWho,#msgHint{margin:0;overflow-wrap:anywhere}
+#sheetMsg .btn-row{min-width:0}
+#sheetMsg .btn-row .btn{min-width:0;flex:1}
+
+/* ═══ Экран «Рассылка» (шаг 9, js/broadcast.js) ═══
+   Очередь по одному человеку: строка получателя — <label> с галочкой, тап-зона ≥ 44 px,
+   текст и телефон сжимаются (min-width:0), длинные имена и адреса переносятся, а не
+   вылезают за карточку. Никакого absolute — только поток. */
+#bcastSetup[hidden],#bcastQueue[hidden],#bcastDone[hidden]{display:none}
+#bcastSetup,#bcastQueue{display:flex;flex-direction:column;gap:12px;min-width:0}
+
+/* Строка получателя: галочка слева, имя и подпись справа, вся строка — тап-зона */
+.bcast-row{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:12px;
+  min-width:0;min-height:44px;padding:10px 14px;background:var(--surface);
+  border-radius:var(--r-md);box-shadow:var(--shadow-soft);cursor:pointer}
+.bcast-row:active{transform:scale(.99)}
+.bcast-row input{flex:none;width:22px;height:22px;min-width:0;margin:0;accent-color:var(--accent)}
+.bcast-info{display:flex;flex-direction:column;gap:2px;min-width:0}
+.bcast-nm{font-weight:640;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bcast-sub{font-size:12px;color:var(--muted);min-width:0;overflow-wrap:anywhere}
+
+/* Поле текста: 16px обязательны, высота под несколько строк, ширина не выезжает */
+#bcastText{display:block;width:100%;min-width:0;max-width:100%;box-sizing:border-box;
+  min-height:120px;font-size:16px;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere}
+#bcastCount{font-weight:700}
+#bcastGroupHint,#bcastProgress,#bcastWarn,#bcastPhone,#bcastHint,
+#bcastSkippedNames,#bcastLeftNames{margin:0;min-width:0;overflow-wrap:anywhere}
+#bcastEmpty{min-width:0;overflow-wrap:anywhere}
+#bcastQueue .card{min-width:0}
+#bcastQueue .card b{min-width:0;overflow-wrap:anywhere}
+/* Предпросмотр сообщения: тот же .msg-preview, но перенос длинного текста обязателен */
+#bcastPreview{min-width:0;overflow-wrap:anywhere;white-space:pre-wrap}
+#bcastQueue .btn-row{min-width:0}
+#bcastQueue .btn-row .btn{min-width:0;flex:1}
+#bcastGroups .chip{flex:none;max-width:100%;white-space:normal;text-align:center}
+#bcastTemplates .chip{flex:none;max-width:100%}
+/* Итог: «Отправила / Пропустила» теми же строками .svc, что и в «О приложении» */
+#bcastDone .svc span{min-width:0;overflow-wrap:anywhere}
+#bcastDone .svc b{white-space:nowrap}
+#bcastDone .btn{min-width:0}
