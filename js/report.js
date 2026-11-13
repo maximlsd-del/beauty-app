@@ -230,19 +230,42 @@
     return incomeOf(from, to).total - expensesOf(from, to).total;
   }
 
-  /* Разбивка по услугам: группируем по снимку названия svcName, сортируем по выручке. */
+  /* Разбивка по услугам: одна запись может содержать несколько услуг, поэтому идём
+     по её списку и делим итог пропорционально базовым ценам. Запись с одной услугой
+     считается ровно как раньше — вся сумма достаётся ей. */
   function servicesOf(from, to) {
     var map = {}, order = [];
-    recordsIn(from, to).forEach(function (r) {
-      var name = asName(r.svcName) || 'Услуга не указана';
+
+    function add(name, sum) {
       var key = name.toLowerCase();
       if (!map[key]) {
         map[key] = { name: name, sum: 0, count: 0 };
         order.push(key);
       }
-      map[key].sum += Math.round(Number(r.price) || 0);
+      map[key].sum += sum;
       map[key].count += 1;
+    }
+
+    recordsIn(from, to).forEach(function (r) {
+      var items = Array.isArray(r.services) && r.services.length
+        ? r.services
+        : [{ svcName: r.svcName, base: r.base }];
+      var list = items.filter(function (it) { return !!asName(it && it.svcName); });
+      if (!list.length) list = [{ svcName: 'Услуга не указана', base: 0 }];
+
+      var price = Math.round(Number(r.price) || 0);
+      var sumBase = list.reduce(function (acc, it) { return acc + (Number(it.base) || 0); }, 0);
+      var left = price;
+
+      list.forEach(function (it, i) {
+        var part;
+        if (i === list.length - 1) part = left;
+        else part = sumBase > 0 ? Math.round(price * (Number(it.base) || 0) / sumBase) : 0;
+        left -= part;
+        add(asName(it.svcName), part);
+      });
     });
+
     return order.map(function (key) { return map[key]; })
       .sort(function (a, b) { return b.sum - a.sum; });
   }

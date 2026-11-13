@@ -135,7 +135,21 @@ input[type=date]::-webkit-datetime-edit,input[type=time]::-webkit-datetime-edit{
 #svcList .svc-info{min-width:0;overflow-wrap:anywhere}
 #svcList .svc-acts{flex:none}
 /* кнопка «+ Новая услуга» в форме записи: тап-зона 44 px (.link), прижата влево */
-#fNewSvc{align-self:flex-start}
+#fNewSvc,#fAddSvc{align-self:flex-start}
+/* ═══ Несколько услуг в одной записи (форма записи) ═══
+   Строки идут в потоке, без absolute: у шита свой overflow, выпадающий список
+   рисовать нечем. Селект внутри строки получает те же размеры, что и поля формы. */
+.svc-lines{display:flex;flex-direction:column;gap:10px;min-width:0}
+.svc-line{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:var(--r-md);
+  background:var(--surface-2);min-width:0}
+.svc-line-top{display:flex;align-items:center;gap:8px;min-width:0}
+.svc-line .svc-own{margin:0;min-width:0}
+.svc-sel{flex:1 1 auto;width:100%;min-width:0;min-height:48px;background:var(--surface);
+  border:0;border-radius:14px;padding:12px 14px;font:inherit;font-size:16px;color:var(--text);
+  box-shadow:var(--shadow-soft);transition:box-shadow var(--dur) var(--ease)}
+.svc-sel:focus{box-shadow:0 0 0 2px var(--accent)}
+.svc-del{flex:none;width:44px;height:44px}
+#svcExtraLbl{margin:0}
 #formSvc .btn{width:100%}
 /* «О приложении»: строки-факты в потоке, значение не сжимается и не переносится */
 .about .svc span{min-width:0;overflow-wrap:anywhere}

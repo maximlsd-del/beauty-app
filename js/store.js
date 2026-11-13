@@ -245,22 +245,42 @@
 
   /* ---------- построение каталога услуг из записей ---------- */
 
+  /* Услуги записи списком: новая модель хранит services[], старая — одно название.
+     Обе читаются одинаково, поэтому миграция v1 и импорт старых копий не теряют услуги. */
+  function recordSvcItems(record) {
+    if (Array.isArray(record.services) && record.services.length) return record.services;
+    return [{
+      serviceId: record.serviceId,
+      svcName: record.svcName,
+      minutes: record.minutes,
+      base: record.base
+    }];
+  }
+
+  function svcNamesOf(list) {
+    return (list || []).map(function (item) { return asName(item && item.svcName); })
+      .filter(function (name) { return !!name; })
+      .join(' + ');
+  }
+
   function buildServicesFromRecords(records) {
     var order = [];
     var map = {};
 
     records.forEach(function (record) {
-      var name = asName(record.svcName);
-      if (!name) return;
-      var key = name.toLowerCase();
-      var entry = map[key];
-      if (!entry) {
-        entry = map[key] = { name: name, prices: [], counts: {} };
-        order.push(key);
-      }
-      var price = toNumber(record.base);
-      entry.prices.push(price);
-      entry.counts[price] = (entry.counts[price] || 0) + 1;
+      recordSvcItems(record).forEach(function (item) {
+        var name = asName(item.svcName);
+        if (!name) return;
+        var key = name.toLowerCase();
+        var entry = map[key];
+        if (!entry) {
+          entry = map[key] = { name: name, prices: [], counts: {} };
+          order.push(key);
+        }
+        var price = toNumber(item.base);
+        entry.prices.push(price);
+        entry.counts[price] = (entry.counts[price] || 0) + 1;
+      });
     });
 
     return order.map(function (key, index) {
@@ -293,6 +313,18 @@
       if (key && !byName[key]) byName[key] = service;
     });
     records.forEach(function (record) {
+      if (Array.isArray(record.services) && record.services.length) {
+        record.services.forEach(function (item) {
+          var svc = byName[asName(item.svcName).toLowerCase()];
+          if (svc) {
+            item.serviceId = String(svc.id);
+            var m = toNumber(svc.minutes);
+            if (m > 0 && !item.minutes) item.minutes = m;
+          }
+        });
+        record.serviceId = record.services[0].serviceId || null;
+        return;
+      }
       var key = asName(record.svcName).toLowerCase();
       var service = key ? byName[key] : null;
       record.serviceId = service ? service.id : null;
@@ -348,6 +380,22 @@
 
   /* ---------- нормализация состояния v2 ---------- */
 
+  /* Одна услуга внутри записи: снимок названия, цены и длительности.
+     serviceId — ссылка на каталог, null — если услугу вписали руками или удалили. */
+  function normalizeSvcItem(raw) {
+    var s = isObj(raw) ? raw : {};
+    var name = asName(s.svcName !== undefined && s.svcName !== null ? s.svcName : s.name);
+    var minutes = toNumber(s.minutes);
+    return {
+      serviceId: s.serviceId !== undefined && s.serviceId !== null && String(s.serviceId) !== ''
+        ? String(s.serviceId)
+        : null,
+      svcName: name,
+      minutes: minutes > 0 ? minutes : 0,
+      base: toNumber(s.base)
+    };
+  }
+
   function normalizeRecord(raw, index) {
     var r = isObj(raw) ? raw : {};
     var svcName = asName(r.svcName !== undefined && r.svcName !== null ? r.svcName : r.procedure);
@@ -355,17 +403,35 @@
     var price = r.price === undefined || r.price === null || r.price === ''
       ? base
       : toNumber(r.price);
+    var minutes = toNumber(r.minutes) > 0 ? toNumber(r.minutes) : 60;
+    var serviceId = r.serviceId !== undefined && r.serviceId !== null && String(r.serviceId) !== ''
+      ? String(r.serviceId)
+      : null;
+
+    /* Несколько услуг: новые записи несут services[], старые — одно svcName.
+       Старую запись разворачиваем в список из одной услуги — дальше всё читается одинаково. */
+    var services = Array.isArray(r.services)
+      ? r.services.filter(isObj).map(normalizeSvcItem).filter(function (it) { return !!it.svcName || !!it.serviceId; })
+      : [];
+    if (!services.length && svcName) {
+      services = [{ serviceId: serviceId, svcName: svcName, minutes: minutes, base: base }];
+    }
+    if (services.length) {
+      var joined = svcNamesOf(services);
+      if (joined) svcName = joined;
+      if (!serviceId && services[0].serviceId) serviceId = String(services[0].serviceId);
+    }
+
     return {
       id: r.id !== undefined && r.id !== null && String(r.id) !== '' ? String(r.id) : 'r' + (index + 1),
       name: asName(r.name),
       phone: asName(r.phone),
       svcName: svcName,
-      serviceId: r.serviceId !== undefined && r.serviceId !== null && String(r.serviceId) !== ''
-        ? String(r.serviceId)
-        : null,
+      serviceId: serviceId,
+      services: services,
       date: asText(r.date).trim(),
       time: asText(r.time).trim(),
-      minutes: toNumber(r.minutes) > 0 ? toNumber(r.minutes) : 60,
+      minutes: minutes,
       base: base,
       discount: toNumber(r.discount),
       price: price,

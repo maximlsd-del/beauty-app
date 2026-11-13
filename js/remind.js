@@ -599,6 +599,11 @@
   }
 
   function svcFromForm(rec) {
+    /* В форме может быть несколько услуг: MZ.formSvcNames отдаёт их одной строкой. */
+    if (typeof MZ.formSvcNames === 'function') {
+      var names = MZ.formSvcNames();
+      if (names) return names;
+    }
     var sel = $('#fService');
     if (sel) {
       if (sel.value === '__own') return val('#fSvcName') || rec.svcName || '';

@@ -446,8 +446,16 @@
       <label class="field"><span>Телефон</span><input id="fPhone" type="text" inputmode="tel" autocomplete="tel" placeholder="+7 000 000-00-00"></label>
 
       <label class="field"><span>Услуга</span><select id="fService"></select></label>
-      <button class="link" id="fNewSvc" type="button">+ Новая услуга</button>
       <label class="field" id="svcOwnWrap" hidden><span>Название услуги <i class="hint">услуга не из каталога</i></span><input id="fSvcName" placeholder="Например, ботокс волос"></label>
+      <!-- Дополнительные услуги: один визит может состоять из нескольких процедур.
+           Первая (основная) услуга живёт в #fService, остальные — строками здесь.
+           «Минут» и «Базовая цена» ниже показывают сумму и правятся руками. -->
+      <div id="svcExtraWrap">
+        <p class="muted small" id="svcExtraLbl" hidden>Дополнительные услуги</p>
+        <div class="svc-lines" id="svcRows"></div>
+        <button class="link" id="fAddSvc" type="button">+ Ещё услуга</button>
+      </div>
+      <button class="link" id="fNewSvc" type="button">+ Новая услуга</button>
       <p class="muted small" id="svcHint" hidden></p>
 
       <div class="grid2 dt-row">

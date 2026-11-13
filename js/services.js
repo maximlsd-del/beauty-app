@@ -105,8 +105,14 @@
     var list = state().records;
     if (!Array.isArray(list)) return 0;
     return list.filter(function (r) {
-      if (String(r.serviceId) === key) return true;
-      return !!name && asName(r.svcName).toLowerCase() === name;
+      /* В записи может быть несколько услуг: id ищется в каждой, а не только в первой. */
+      var items = Array.isArray(r.services) && r.services.length
+        ? r.services
+        : [{ serviceId: r.serviceId, svcName: r.svcName }];
+      return items.some(function (it) {
+        if (String(it.serviceId) === key) return true;
+        return !!name && asName(it.svcName).toLowerCase() === name;
+      });
     }).length;
   }
 
@@ -119,7 +125,11 @@
     services().forEach(function (s) { used[String(s.id)] = true; });
     var list = state().records;
     if (Array.isArray(list)) {
-      list.forEach(function (r) { if (r.serviceId) used[String(r.serviceId)] = true; });
+      list.forEach(function (r) {
+        (Array.isArray(r.services) && r.services.length ? r.services : [r]).forEach(function (it) {
+          if (it && it.serviceId) used[String(it.serviceId)] = true;
+        });
+      });
     }
     var n = 1;
     while (used['s' + n]) n++;

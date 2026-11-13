@@ -373,6 +373,47 @@
     return null;
   }
 
+  /* ---------- несколько услуг в одной записи ----------
+     В визите бывает не одна процедура (маникюр + педикюр + брови). Основная услуга
+     остаётся в #fService — как было, чтобы не ломать привычный сценарий, — а остальные
+     идут строками #svcRows. В саму запись они попадают массивом services:
+     [{serviceId, svcName, minutes, base}], первая — основная. Старые поля svcName,
+     serviceId, minutes и base остаются: на них завязаны карточка дня, отчёт и напоминания. */
+  var svcExtras = [];
+
+  function joinSvcNames(items) {
+    return (items || []).map(function (it) { return asName(it && it.svcName); })
+      .filter(function (n) { return !!n; })
+      .join(' + ');
+  }
+
+  /* Снимок выбранной услуги для строки формы: каталог перерисовывается на лету,
+     а в записи должно остаться название и цена на момент сохранения. */
+  function extraSnapshot(row) {
+    if (!row) return null;
+    if (row.serviceId === OWN_SVC) {
+      var own = asName(row.ownName);
+      return own ? { serviceId: null, svcName: own, minutes: 0, base: 0 } : null;
+    }
+    var svc = row.serviceId ? svcById(row.serviceId) : null;
+    if (svc) {
+      return {
+        serviceId: String(svc.id),
+        svcName: svc.name,
+        minutes: Number(svc.minutes) || 0,
+        base: Number(svc.price) || 0
+      };
+    }
+    var name = asName(row.svcName);
+    if (!name) return null;
+    return {
+      serviceId: row.serviceId ? String(row.serviceId) : null,
+      svcName: name,
+      minutes: Number(row.minutes) || 0,
+      base: Number(row.base) || 0
+    };
+  }
+
   /* Свободный id вида c1, c2… — без Date.now(), чтобы id не зависел от часов. */
   function newClientId() {
     var used = {};
@@ -435,12 +476,22 @@
     /* Услугу могли удалить из каталога, а запись осталась: оставляем её в выборе,
        чтобы правка старой записи не теряла название. */
     if (keepId && !svcById(keepId)) {
-      var rec = null;
+      var label = '';
       for (var i = 0; i < state.records.length; i++) {
-        if (String(state.records[i].serviceId) === String(keepId)) { rec = state.records[i]; break; }
+        if (String(state.records[i].serviceId) === String(keepId)) {
+          /* В записи может быть несколько услуг: берём название именно этой, а не всю строку. */
+          var list = Array.isArray(state.records[i].services) && state.records[i].services.length
+            ? state.records[i].services
+            : [{ serviceId: state.records[i].serviceId, svcName: state.records[i].svcName }];
+          for (var j = 0; j < list.length; j++) {
+            if (String(list[j].serviceId) === String(keepId)) { label = asName(list[j].svcName); break; }
+          }
+          if (!label) label = state.records[i].svcName || '';
+          break;
+        }
       }
       html += '<option value="' + esc(keepId) + '">' +
-        esc((rec && rec.svcName) || 'Услуга') + ' — вне каталога</option>';
+        esc(label || 'Услуга') + ' — вне каталога</option>';
     }
 
     html += '<option value="' + OWN_SVC + '">Другая</option>';
@@ -454,26 +505,41 @@
   }
 
   /* Выбор услуги в форме записи ПО ID — общая точка для каталога услуг (js/services.js).
-     Каталог зовёт её после сохранения новой услуги, добавленной прямо из формы записи:
-     приём макета (mSave → fService/fPrice/fDur) — услуга сразу выбрана, цена и длительность
-     подставлены принудительно, ручные пометки полей сняты. */
+     Каталог зовёт её после сохранения новой услуги, добавленной прямо из формы записи.
+     Если основная услуга ещё не выбрана (или каталог был пуст), новая встаёт в #fService.
+     Если основная уже есть — новая становится дополнительной строкой: так «+ Новая услуга»
+     в визите с маникюром добавляет вторую процедуру, а не затирает первую. */
   function pickService(id) {
-    var sel = $('#fService');
-    if (!sel) return null;
-
-    renderSvcOptions(id);
     var svc = svcById(id);
     if (!svc) return null;
 
-    sel.value = String(svc.id);
-    showOwnSvc(false);
-    minutesTouched = false;
-    baseTouched = false;
-    manualPrice = false;
-    setField('#fMinutes', svc.minutes);
-    setField('#fBase', svc.price);
-    syncTotal();
-    showHint('#svcHint', '');
+    var sel = $('#fService');
+    if (!sel) return null;
+    var ownName = asName(($('#fSvcName') || {}).value);
+    var primaryEmpty = sel.value === OWN_SVC && !ownName;
+
+    if (primaryEmpty) {
+      renderSvcOptions(id);
+      sel.value = String(svc.id);
+      showOwnSvc(false);
+      minutesTouched = false;
+      baseTouched = false;
+      manualPrice = false;
+      syncSvcTotals();
+      showHint('#svcHint', '');
+      return svc;
+    }
+
+    svcExtras.push({
+      serviceId: String(svc.id),
+      svcName: svc.name,
+      ownName: '',
+      minutes: Number(svc.minutes) || 0,
+      base: Number(svc.price) || 0
+    });
+    renderSvcExtras();
+    syncSvcTotals();
+    showHint('#svcHint', 'Услуга «' + svc.name + '» добавлена к записи.');
     return svc;
   }
 
@@ -486,6 +552,92 @@
 
   function showErr(text) { showHint('#formErr', text); }
 
+  /* ---------- строки дополнительных услуг ---------- */
+
+  function extraRowHTML(row, i) {
+    var html = state.services.map(function (s) {
+      return '<option value="' + esc(s.id) + '">' + esc(s.name) + ' — ' +
+        money(s.price) + ' ' + esc(cur()) + ' · ' + esc(s.minutes) + ' мин</option>';
+    }).join('');
+
+    if (!state.services.length) {
+      html = '<option value="" disabled>В каталоге пока нет услуг</option>';
+    }
+    /* Услугу могли удалить из каталога, а запись осталась: оставляем снимок названия. */
+    if (row.serviceId && row.serviceId !== OWN_SVC && !svcById(row.serviceId)) {
+      html += '<option value="' + esc(row.serviceId) + '">' +
+        esc(row.svcName || 'Услуга') + ' — вне каталога</option>';
+    }
+    html += '<option value="' + OWN_SVC + '">Другая</option>';
+
+    return '<div class="svc-line" data-i="' + i + '">' +
+      '<div class="svc-line-top">' +
+      '<select class="inp svc-sel" aria-label="Дополнительная услуга">' + html + '</select>' +
+      '<button class="icon-btn svc-del" type="button" data-del="' + i + '" aria-label="Убрать услугу">' +
+      '<svg class="ic"><use href="#i-close"></use></svg></button>' +
+      '</div>' +
+      '<label class="field svc-own"' + (row.serviceId === OWN_SVC ? '' : ' hidden') + '>' +
+      '<span>Название <i class="hint">услуга не из каталога</i></span>' +
+      '<input class="inp svc-own-name" placeholder="Например, ботокс волос" value="' +
+      esc(row.ownName || '') + '"></label>' +
+      '</div>';
+  }
+
+  function renderSvcExtras() {
+    var box = $('#svcRows');
+    if (!box) return;
+
+    box.innerHTML = svcExtras.map(extraRowHTML).join('');
+
+    /* selected в разметке не ставим: значение выставляем свойством — так одинаково
+       работает и в браузере, и в стенде с поддельным DOM. Пустая услуга по умолчанию
+       берёт первую из каталога, чтобы строка не была «мёртвой». */
+    $$('#svcRows .svc-sel').forEach(function (sel, i) {
+      var row = svcExtras[i];
+      if (!row) return;
+      if (!row.serviceId) {
+        var first = state.services[0];
+        row.serviceId = first ? String(first.id) : OWN_SVC;
+        if (first) { row.svcName = first.name; row.minutes = first.minutes; row.base = first.price; }
+      }
+      sel.value = String(row.serviceId);
+    });
+
+    var lbl = $('#svcExtraLbl');
+    if (lbl) lbl.hidden = !svcExtras.length;
+  }
+
+  /* Сумма по основной и дополнительным услугам. «Другая» (своё название) цены не имеет:
+     её сумму мастер вписывает в «Базовая цена» руками. */
+  function svcTotals() {
+    var minutes = 0, base = 0;
+
+    var sel = $('#fService');
+    if (sel && sel.value !== OWN_SVC) {
+      var main = svcById(sel.value);
+      if (main) {
+        minutes += Number(main.minutes) || 0;
+        base += Number(main.price) || 0;
+      }
+    }
+
+    svcExtras.forEach(function (row) {
+      var it = extraSnapshot(row);
+      if (!it) return;
+      minutes += it.minutes;
+      base += it.base;
+    });
+
+    return { minutes: minutes, base: base };
+  }
+
+  function syncSvcTotals() {
+    var sum = svcTotals();
+    if (!minutesTouched) setField('#fMinutes', sum.minutes > 0 ? sum.minutes : 60);
+    if (!baseTouched) setField('#fBase', sum.base);
+    syncTotal();
+  }
+
   function onServiceChange() {
     var sel = $('#fService');
     if (!sel) return;
@@ -493,24 +645,62 @@
     if (sel.value === OWN_SVC) {
       showOwnSvc(true);
       showHint('#svcHint', '');
+      syncSvcTotals();
       return;
     }
     showOwnSvc(false);
 
     var svc = svcById(sel.value);
-    if (!svc) { showHint('#svcHint', ''); return; }
+    if (!svc) { showHint('#svcHint', ''); syncSvcTotals(); return; }
 
     /* «Уже введённые значения не затираются молча»: цену и длительность подставляем
        только в нетронутые поля, иначе оставляем ввод пользователя и говорим об этом. */
     var kept = [];
-    if (minutesTouched) kept.push('длительность'); else setField('#fMinutes', svc.minutes);
-    if (baseTouched) kept.push('цену'); else setField('#fBase', svc.price);
-    syncTotal();
+    if (minutesTouched) kept.push('длительность');
+    if (baseTouched) kept.push('цену');
+    syncSvcTotals();
 
     if (kept.length === 2) showHint('#svcHint', 'Цена и длительность оставлены как есть — вы вводили их вручную.');
     else if (kept[0] === 'цену') showHint('#svcHint', 'Базовая цена оставлена как есть — вы вводили её вручную.');
     else if (kept[0] === 'длительность') showHint('#svcHint', 'Длительность оставлена как есть — вы вводили её вручную.');
     else showHint('#svcHint', '');
+  }
+
+  /* Название основной услуги для формы. Если услугу удалили из каталога, а запись
+     осталась, название берём из пункта «вне каталога» — иначе напоминание теряло бы услугу. */
+  function primarySvcName() {
+    var sel = $('#fService');
+    if (!sel) return '';
+    if (sel.value === OWN_SVC) return asName(($('#fSvcName') || {}).value);
+
+    var svc = svcById(sel.value);
+    if (svc) return svc.name;
+
+    var opt = $$('#fService option').filter(function (o) {
+      var v = o.value !== undefined && o.value !== '' ? o.value : (o.attrs ? o.attrs.value : '');
+      return String(v) === String(sel.value);
+    })[0];
+    var text = opt ? String(opt.textContent || '') : '';
+    /* Пункт выглядит как «Название — вне каталога»: срезаем только последний хвост. */
+    return text ? text.split(' — ').slice(0, -1).join(' — ') : '';
+  }
+
+  /* Названия услуг из открытой формы — для напоминания (js/remind.js), когда мастер
+     ещё не сохранила запись. Возвращает строку тем же форматом, что и svcName в записи. */
+  function formSvcNames() {
+    var items = [];
+
+    if ($('#fService')) {
+      var main = primarySvcName();
+      if (main) items.push(main);
+    }
+
+    svcExtras.forEach(function (row) {
+      var it = extraSnapshot(row);
+      if (it) items.push(it.svcName);
+    });
+
+    return items.join(' + ');
   }
 
   /* ---------- скидка и итог ---------- */
@@ -609,15 +799,17 @@
     setField('#fComment', '');
     phoneAuto = '';
 
+    /* Новая запись всегда начинается с одной основной услуги: дополнительные
+       строки от прошлой записи не должны переезжать в новую. */
+    svcExtras = [];
+    renderSvcExtras();
+
     if (sel) sel.value = first ? String(first.id) : OWN_SVC;
     showOwnSvc(!first);
     /* Каталог пуст: подсказываем, где взять услугу, вместо молчаливого «Другая». */
     showHint('#svcHint', first
       ? ''
       : 'В каталоге нет услуг — нажмите «+ Новая услуга» или впишите название вручную.');
-
-    setField('#fMinutes', first ? first.minutes : 60);
-    setField('#fBase', first ? first.price : 0);
 
     setField('#fDate', defaultDate());
     setField('#fTime', defaultTime(defaultDate()));
@@ -630,7 +822,8 @@
     setPaid(false);
 
     renderDisc();
-    syncTotal();
+    /* «Минут» и «Базовая цена» — сумма по выбранным услугам (сейчас одна). */
+    syncSvcTotals();
     showErr('');
   }
 
@@ -640,18 +833,42 @@
     if (!rec) return;
     editId = String(rec.id);
 
-    renderSvcOptions(rec.serviceId);
+    /* Услуги записи: первая — основная (в #fService), остальные — строками.
+       Так правка старой одноуслужной записи выглядит как раньше. */
+    var items = Array.isArray(rec.services) && rec.services.length
+      ? rec.services
+      : (rec.svcName ? [{
+        serviceId: rec.serviceId,
+        svcName: rec.svcName,
+        minutes: rec.minutes,
+        base: rec.base
+      }] : []);
+    var head = items[0] || null;
+
+    renderSvcOptions(head && head.serviceId ? head.serviceId : rec.serviceId);
     var sel = $('#fService');
-    if (rec.serviceId) {
+    if (head && head.serviceId) {
       /* Услуга либо есть в каталоге, либо оставлена в списке как «вне каталога»
          (renderSvcOptions выше добавил её именно для этой записи). */
-      sel.value = String(rec.serviceId);
+      sel.value = String(head.serviceId);
       showOwnSvc(false);
     } else {
       sel.value = OWN_SVC;
       showOwnSvc(true);
-      setField('#fSvcName', rec.svcName || '');
+      setField('#fSvcName', (head && head.svcName) || rec.svcName || '');
     }
+
+    svcExtras = items.slice(1).map(function (it) {
+      var sid = it && it.serviceId ? String(it.serviceId) : '';
+      return {
+        serviceId: sid || OWN_SVC,
+        svcName: (it && it.svcName) || '',
+        ownName: sid ? '' : ((it && it.svcName) || ''),
+        minutes: Number(it && it.minutes) || 0,
+        base: Number(it && it.base) || 0
+      };
+    });
+    renderSvcExtras();
 
     setField('#fClient', rec.name || '');
     setField('#fPhone', rec.phone || '');
@@ -668,8 +885,12 @@
     setField('#fDisc', disc);
     /* Если итог в записи отличается от «база минус скидка», он был введён вручную. */
     manualPrice = (Number(rec.price) || 0) !== autoPrice(Number(rec.base) || 0, disc);
-    minutesTouched = false;
-    baseTouched = false;
+
+    /* Суммы по каталогу совпали с сохранёнными? Если нет — их правили руками,
+       и смена услуги не должна затирать ввод. */
+    var catalogSum = svcTotals();
+    minutesTouched = (Number(rec.minutes) || 60) !== (catalogSum.minutes > 0 ? catalogSum.minutes : 60);
+    baseTouched = (Number(rec.base) || 0) !== catalogSum.base;
 
     renderDisc();
     if (manualPrice) setField('#fPrice', Number(rec.price) || 0);
@@ -848,24 +1069,45 @@
     var wasEdit = !!editId;
     var current = wasEdit ? findRecord(editId) : null;
 
-    /* svcName — всегда снимок названия: удаление услуги из каталога старые записи не ломает.
-       serviceId — id из каталога, иначе null. Исключение: услуга записи удалена из каталога,
-       но осталась выбранной как «вне каталога» — тогда сохраняем прежнюю связь и название,
-       чтобы простая правка времени не обнуляла услугу. */
-    var svcName, serviceId;
+    /* Услуги записи: основная + дополнительные строки. svcName — снимок названий одной
+       строкой (его читают карточка дня, отчёт и напоминание), serviceId — ссылка первой
+       услуги: старые места приложения продолжают работать как раньше.
+       Услуга могла быть удалена из каталога, но остаться выбранной «вне каталога» —
+       тогда сохраняем прежнюю связь и название, чтобы простая правка времени её не теряла. */
+    var items = [];
+
     if (own) {
-      svcName = asName($('#fSvcName').value);
-      serviceId = null;
+      var ownName = asName($('#fSvcName').value);
+      if (ownName) items.push({ serviceId: null, svcName: ownName, minutes: 0, base: 0 });
     } else if (svc) {
-      svcName = svc.name;
-      serviceId = String(svc.id);
+      items.push({
+        serviceId: String(svc.id),
+        svcName: svc.name,
+        minutes: Number(svc.minutes) || 0,
+        base: Number(svc.price) || 0
+      });
     } else if (current && sel && String(current.serviceId) === String(sel.value)) {
-      svcName = current.svcName || '';
-      serviceId = current.serviceId ? String(current.serviceId) : null;
-    } else {
-      svcName = '';
-      serviceId = null;
+      var curItems = Array.isArray(current.services) && current.services.length
+        ? current.services
+        : [{ serviceId: current.serviceId, svcName: current.svcName, minutes: current.minutes, base: current.base }];
+      var curHead = curItems[0] || null;
+      if (curHead && asName(curHead.svcName)) {
+        items.push({
+          serviceId: curHead.serviceId ? String(curHead.serviceId) : null,
+          svcName: curHead.svcName,
+          minutes: Number(curHead.minutes) || 0,
+          base: Number(curHead.base) || 0
+        });
+      }
     }
+
+    svcExtras.forEach(function (row) {
+      var it = extraSnapshot(row);
+      if (it) items.push(it);
+    });
+
+    var svcName = joinSvcNames(items);
+    var serviceId = items.length && items[0].serviceId ? String(items[0].serviceId) : null;
 
     var minutes = Math.round(formNum('#fMinutes'));
     if (minutes <= 0) minutes = 60;
@@ -887,6 +1129,7 @@
       phone: phone,
       svcName: svcName,
       serviceId: serviceId,
+      services: items,
       date: date,
       time: time,
       minutes: minutes,
@@ -972,6 +1215,62 @@
   var fService = $('#fService');
   if (fService) fService.addEventListener('change', onServiceChange);
 
+  /* Дополнительные услуги: слушатели на контейнере (делегирование) — строки
+     перерисовываются, а change/input/click всплывают. */
+  var svcRowsBox = $('#svcRows');
+  if (svcRowsBox) {
+    svcRowsBox.addEventListener('change', function (e) {
+      var t = e && e.target;
+      var line = t && typeof t.closest === 'function' ? t.closest('.svc-line') : null;
+      if (!line || !t.classList || !t.classList.contains('svc-sel')) return;
+      var row = svcExtras[Number(line.dataset.i)];
+      if (!row) return;
+
+      row.serviceId = t.value;
+      var it = extraSnapshot(row);
+      if (it) { row.svcName = it.svcName; row.minutes = it.minutes; row.base = it.base; }
+
+      var own = line.querySelector('.svc-own');
+      if (own) own.hidden = t.value !== OWN_SVC;
+      syncSvcTotals();
+    });
+
+    svcRowsBox.addEventListener('input', function (e) {
+      var t = e && e.target;
+      var line = t && typeof t.closest === 'function' ? t.closest('.svc-line') : null;
+      if (!line || !t.classList || !t.classList.contains('svc-own-name')) return;
+      var row = svcExtras[Number(line.dataset.i)];
+      if (row) row.ownName = String(t.value || '');
+      syncSvcTotals();
+    });
+
+    svcRowsBox.addEventListener('click', function (e) {
+      var t = e && e.target;
+      var btn = t && typeof t.closest === 'function' ? t.closest('.svc-del') : null;
+      if (!btn) return;
+      var line = btn.closest('.svc-line');
+      var i = line ? Number(line.dataset.i) : -1;
+      if (i < 0) return;
+      svcExtras.splice(i, 1);
+      renderSvcExtras();
+      syncSvcTotals();
+    });
+  }
+
+  var fAddSvc = $('#fAddSvc');
+  if (fAddSvc) fAddSvc.addEventListener('click', function () {
+    var first = state.services[0] || null;
+    svcExtras.push({
+      serviceId: first ? String(first.id) : OWN_SVC,
+      svcName: first ? first.name : '',
+      ownName: '',
+      minutes: first ? Number(first.minutes) || 0 : 0,
+      base: first ? Number(first.price) || 0 : 0
+    });
+    renderSvcExtras();
+    syncSvcTotals();
+  });
+
   var fMinutes = $('#fMinutes');
   if (fMinutes) fMinutes.addEventListener('input', function () { minutesTouched = true; });
 
@@ -1035,9 +1334,14 @@
   MZ.renderSvcOptions = renderSvcOptions;
   MZ.onServiceChange = onServiceChange;
   MZ.pickService = pickService;
+  /* Названия услуг из открытой формы (одна строка, как svcName) — для напоминания. */
+  MZ.formSvcNames = formSvcNames;
+  MZ.renderSvcExtras = renderSvcExtras;
   MZ.refreshFormAfterServices = function () {
-    /* Каталог изменился (правка, удаление) — список услуг и карточки дня обновляем здесь. */
+    /* Каталог изменился (правка, удаление) — список услуг, строки дополнительных
+       услуг и карточки дня обновляем здесь. */
     renderSvcOptions();
+    renderSvcExtras();
     renderDay();
   };
 
