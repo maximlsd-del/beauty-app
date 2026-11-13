@@ -318,6 +318,15 @@ input[type=date]::-webkit-datetime-edit,input[type=time]::-webkit-datetime-edit{
 #clBlReasonWrap[hidden]{display:none}
 #clBlReasonWrap,#clBlReason{min-width:0}
 
+/* ═══ Клавиатура (js/app.js: --kb по visualViewport) ═══
+   Оверлей фиксирован по всему экрану; пока клавиатура открыта, поджимаем его снизу
+   на её высоту — лист остаётся над клавиатурой, а не под ней.
+   --kb объявлена здесь нулём (значение ставит js/app.js), чтобы переменная была
+   определена всегда — и до первого замера. */
+:root{--kb:0px}
+.overlay{padding-bottom:var(--kb,0px)}
+body.kb-open .sheet{max-height:100%}
+
 /* Лист напоминания и поздравления: текст сообщения виден целиком и не выезжает
    за карточку — переносится по словам, длинные ссылки тоже. */
 .msg-preview{background:var(--surface-2);border-radius:var(--r-md);padding:12px 14px;

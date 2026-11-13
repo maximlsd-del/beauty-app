@@ -427,6 +427,11 @@
         money(s.price) + ' ' + esc(cur()) + ' · ' + esc(s.minutes) + ' мин</option>';
     }).join('');
 
+    /* Пустой каталог — не молчим: иначе в поле видно только «Другая» и непонятно почему. */
+    if (!state.services.length) {
+      html = '<option value="" disabled>В каталоге пока нет услуг</option>';
+    }
+
     /* Услугу могли удалить из каталога, а запись осталась: оставляем её в выборе,
        чтобы правка старой записи не теряла название. */
     if (keepId && !svcById(keepId)) {
@@ -606,6 +611,10 @@
 
     if (sel) sel.value = first ? String(first.id) : OWN_SVC;
     showOwnSvc(!first);
+    /* Каталог пуст: подсказываем, где взять услугу, вместо молчаливого «Другая». */
+    showHint('#svcHint', first
+      ? ''
+      : 'В каталоге нет услуг — нажмите «+ Новая услуга» или впишите название вручную.');
 
     setField('#fMinutes', first ? first.minutes : 60);
     setField('#fBase', first ? first.price : 0);
@@ -622,7 +631,6 @@
 
     renderDisc();
     syncTotal();
-    showHint('#svcHint', '');
     showErr('');
   }
 
@@ -747,6 +755,73 @@
     }
     scrollLocked = open;
   }
+
+  /* ---------- клавиатура на телефоне ----------
+     Шиты — position:fixed у нижнего края экрана. Когда выезжает клавиатура, iOS не двигает
+     fixed-слой, и нижние поля (а в шите «Новая услуга» — все три) уходят под неё.
+     Решение: считаем высоту клавиатуры по visualViewport и кладём её в --kb; css поджимает
+     оверлеи снизу. Поле в фокусе дополнительно доводим до середины листа. */
+  function kbHeight() {
+    if (typeof window === 'undefined') return 0;
+    var vv = window.visualViewport;
+    if (!vv || typeof vv.height !== 'number' || typeof window.innerHeight !== 'number') return 0;
+    var h = Math.round(window.innerHeight - vv.height - (Number(vv.offsetTop) || 0));
+    return h > 60 ? h : 0;
+  }
+
+  function syncKeyboard() {
+    var kb = kbHeight();
+    var root = typeof document !== 'undefined' ? document.documentElement : null;
+    if (root && root.style && typeof root.style.setProperty === 'function') {
+      root.style.setProperty('--kb', kb + 'px');
+    }
+    if (typeof document !== 'undefined' && document.body && document.body.classList) {
+      if (kb) document.body.classList.add('kb-open');
+      else document.body.classList.remove('kb-open');
+    }
+    return kb;
+  }
+
+  /* Поле в фокусе: поднимаем его в видимую часть листа (iOS сам это делает не всегда). */
+  function keepFieldVisible(el) {
+    if (!el || typeof el.scrollIntoView !== 'function') return;
+    var sheet = typeof el.closest === 'function' ? el.closest('.sheet') : null;
+    if (!sheet) return;
+    try {
+      el.scrollIntoView({ block: 'center', inline: 'nearest' });
+    } catch (e) { /* старый браузер — обойдёмся без прокрутки */ }
+  }
+
+  function isField(el) {
+    var tag = el && el.tagName ? String(el.tagName).toLowerCase() : '';
+    return tag === 'input' || tag === 'select' || tag === 'textarea';
+  }
+
+  (function watchKeyboard() {
+    if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return;
+    var vv = window.visualViewport;
+    if (vv && typeof vv.addEventListener === 'function') {
+      vv.addEventListener('resize', syncKeyboard);
+      vv.addEventListener('scroll', syncKeyboard);
+    }
+    window.addEventListener('resize', syncKeyboard);
+    window.addEventListener('orientationchange', syncKeyboard);
+
+    if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+      document.addEventListener('focusin', function (e) {
+        var el = e && e.target;
+        if (!isField(el)) return;
+        /* Ждём, пока клавиатура доедет: сразу после фокуса её высота ещё нулевая. */
+        setTimeout(function () { syncKeyboard(); keepFieldVisible(el); }, 260);
+      }, true);
+      document.addEventListener('focusout', function () {
+        setTimeout(syncKeyboard, 160);
+      }, true);
+    }
+    syncKeyboard();
+  })();
+
+  MZ.syncKeyboard = syncKeyboard;
 
   /* ---------- сохранение и удаление ---------- */
 
