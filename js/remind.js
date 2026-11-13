@@ -115,6 +115,13 @@
     return d.getDate() + ' ' + MON[d.getMonth()];
   }
 
+  /* «22.12.26» — короткая дата для сообщения клиенту: в переписке она понятнее слов. */
+  function shortDate(iso) {
+    if (!isISODate(iso)) return String(iso === null || iso === undefined ? '' : iso);
+    var p = String(iso).split('-');
+    return p[2] + '.' + p[1] + '.' + p[0].slice(2);
+  }
+
   function money(n) {
     var v = Math.round(Number(n) || 0);
     return typeof MZ.money === 'function' ? MZ.money(v) : String(v);
@@ -241,15 +248,23 @@
   /* ---------- 3. текст напоминания и лист сообщения из js/care.js ---------- */
 
   /* Текст напоминания. Поля можно переопределить (opts): в шите записи мастер может
-     успеть поправить имя, телефон, дату или время — напоминание должно уйти с ними. */
+     успеть поправить имя, телефон, дату или время — напоминание должно уйти с ними.
+     В сообщении всегда есть дата, время и услуга: клиенту не нужно ничего искать. */
   function remindText(rec, opts) {
     opts = opts || {};
     var name = asName(opts.name) || asName(rec && rec.name) || 'клиент';
     var date = opts.date !== undefined && opts.date !== '' ? opts.date : (rec ? rec.date : '');
     var time = opts.time !== undefined && opts.time !== '' ? opts.time : (rec ? rec.time : '');
     var svc = opts.svc !== undefined && opts.svc !== '' ? opts.svc : (rec ? rec.svcName : '');
-    svc = asName(svc) || 'услуга не указана';
-    return 'Здравствуйте, ' + name + '! Напоминаю: ' + fmtDate(date) + ' в ' + time + ', ' + svc + '.';
+    svc = asName(svc);
+    var hasSvc = !!svc && svc !== 'услуга не указана';
+    /* Название услуги в середине фразы пишется со строчной буквы: «на наращивание ресниц». */
+    if (hasSvc) svc = svc.charAt(0).toLowerCase() + svc.slice(1);
+
+    var body = 'Здравствуйте, ' + name + '! Вы записаны ' +
+      (shortDate(date) || 'дата не указана') + ' в ' + (time || '—');
+    if (hasSvc) body += ' на ' + svc;
+    return body + '. Если планы изменились — напишите, перенесём.';
   }
 
   function phoneOf(rec) {
@@ -266,8 +281,10 @@
     if (!MZ.care || !MZ.care.sheet || typeof MZ.care.sheet.open !== 'function') return false;
     opts = opts || {};
     var client = typeof MZ.findClientByName === 'function' ? MZ.findClientByName(rec.name) : null;
-    MZ.care.sheet.open('Напомнить клиенту', remindText(rec, opts), {
-      kind: 'remind',
+    MZ.care.sheet.open(opts.title || 'Напомнить клиенту', remindText(rec, opts), {
+      /* kind 'send' — то же сообщение сразу после сохранения записи: кнопки «Напомнила»
+         там нет, отметку мастер ставит отдельно. */
+      kind: opts.kind || 'remind',
       record: rec,
       client: client,
       phone: asName(opts.phone) || phoneOf(rec)
@@ -667,6 +684,7 @@
     unmarkRecord: unmarkRecord,
     findRecord: findRecord,
     fmtDate: fmtDate,
+    shortDate: shortDate,
     whenLabel: whenLabel,
     leftWords: leftWords,
     apptMarkHTML: apptMarkHTML,

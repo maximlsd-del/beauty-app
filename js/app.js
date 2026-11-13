@@ -847,6 +847,13 @@
     if (MZ.clientsScreen && typeof MZ.clientsScreen.render === 'function') {
       MZ.clientsScreen.render();
     }
+
+    /* Новая запись: сразу предлагаем отправить клиенту дату, время и услугу.
+       Это тот же лист сообщения, что и «Напомнить», но без кнопки «Напомнила». */
+    if (!current && MZ.remind && typeof MZ.remind.openFor === 'function') {
+      MZ.remind.openFor(data, { kind: 'send', title: 'Отправить клиенту' });
+    }
+
     showErr('');
   }
 
