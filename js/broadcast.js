@@ -365,9 +365,21 @@
     if (!client) { finish(); return; }
 
     var links = MZ.care && typeof MZ.care.links === 'function' ? MZ.care.links : null;
-    var url = links ? links(kind, client.phone) : '';
+    /* Текст с уже подставленным именем едет в ссылку: WhatsApp и SMS вставляют его
+       в поле ввода, Telegram текст по номеру не принимает — там его копируем. */
+    var body = textFor(client.name);
+    var url = links ? links(kind, client.phone, body) : '';
     if (!url) {
       showHint('У клиента нет телефона — скопируйте текст и отправьте вручную.');
+      return;
+    }
+
+    if (kind === 'telegram') {
+      copyText(body, function () {});
+      try {
+        if (typeof window.open === 'function') window.open(url, '_blank');
+      } catch (e) { /* ссылку открыть не удалось — текст уже в буфере */ }
+      showHint('Telegram открыт: текст скопирован — вставьте его в чат и нажмите «Отправила».');
       return;
     }
 
@@ -375,7 +387,7 @@
       if (typeof window.open === 'function') window.open(url, '_blank');
     } catch (e) { /* ссылку открыть не удалось — текст всё равно можно скопировать */ }
 
-    showHint(MSG[kind] + ' открыт: отправьте текст и нажмите «Отправила».');
+    showHint(MSG[kind] + ' открыт: текст уже вписан — отправьте и нажмите «Отправила».');
   }
 
   /* «Отправила» — единственное действие, которое ставит дату: без него клиент

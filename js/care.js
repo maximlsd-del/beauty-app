@@ -97,12 +97,16 @@
     return d;
   }
 
-  function linkFor(kind, phone) {
+  function linkFor(kind, phone, text) {
     var d = phoneDigits(phone);
     if (!d) return '';
+    var body = encodeURIComponent(String(text === null || text === undefined ? '' : text));
+    /* Telegram по номеру текст не принимает вовсе — там только открываем чат,
+       а текст кладём в буфер обмена (см. sendIn). */
     if (kind === 'telegram') return 'https://t.me/+' + d;
-    if (kind === 'sms') return 'sms:' + d;
-    return 'https://wa.me/' + d;
+    /* SMS: iOS понимает «&body=», Android — «?body=»; «?&body=» работает и там, и там. */
+    if (kind === 'sms') return 'sms:' + d + '?&body=' + body;
+    return 'https://wa.me/' + d + (body ? '?text=' + body : '');
   }
 
   /* Открыть ссылку. Возвращает false, если приложение ссылку открыть не смогло:
@@ -197,7 +201,7 @@
 
     var digits = phoneDigits(msgCtx.phone);
     setText('#msgTitle', title);
-    setText('#msgText', text);
+    setMsgText(text);
     setText('#msgWho', (msgCtx.client && msgCtx.client.name ? msgCtx.client.name : 'Клиент') +
       ' · ' + (asName(msgCtx.phone) || 'телефон не указан'));
 
@@ -211,6 +215,22 @@
     });
 
     sheet.hidden = false;
+  }
+
+  /* Текст сообщения — поле ввода: мастер может дописать что угодно перед отправкой. */
+  function setMsgText(text) {
+    var el = $('#msgText');
+    if (!el) return;
+    var body = text === null || text === undefined ? '' : String(text);
+    if (typeof el.value === 'string') { el.value = body; return; }
+    el.textContent = body;
+  }
+
+  function currentText() {
+    var el = $('#msgText');
+    if (!el) return msgCtx ? msgCtx.text : '';
+    if (typeof el.value === 'string') return el.value;
+    return String(el.textContent === null || el.textContent === undefined ? '' : el.textContent);
   }
 
   function closeMsg() {
@@ -233,9 +253,22 @@
 
   function sendIn(kind) {
     if (!msgCtx) return;
-    var url = linkFor(kind, msgCtx.phone);
+    var text = currentText();
+    msgCtx.text = text;
+    var url = linkFor(kind, msgCtx.phone, text);
     if (!url) {
       showHint('У клиента нет телефона — скопируйте текст и отправьте вручную.');
+      return;
+    }
+    /* Telegram по номеру готовый текст не принимает: кладём его в буфер и открываем чат. */
+    if (kind === 'telegram') {
+      copyText(text, function () {});
+      if (!openLink(url)) {
+        showHint('Открыть Telegram не удалось — текст уже скопирован, вставьте его в чат.');
+        return;
+      }
+      showHint('Telegram открыт: текст скопирован — вставьте его в чат и отправьте.');
+      toast('Telegram: текст скопирован, вставьте в чат.');
       return;
     }
     if (!openLink(url)) {
@@ -244,7 +277,9 @@
     }
     /* Подсказка остаётся на экране: если приложение ушло в мессенджер и вернулось,
        мастер видит, что текст уже подготовлен и его осталось отправить. */
-    showHint(MSG[kind] + ' открыт: отправьте готовый текст клиенту.');
+    showHint(kind === 'sms'
+      ? 'SMS открыто: текст уже вставлен — осталось отправить.'
+      : MSG[kind] + ' открыт: текст уже вписан в сообщение — осталось отправить.');
     toast(MSG[kind] + ': текст готов, отправьте его клиенту.');
   }
 
@@ -276,7 +311,8 @@
 
   function copyCurrent() {
     if (!msgCtx) return;
-    var text = msgCtx.text;
+    var text = currentText();
+    msgCtx.text = text;
     copyText(text, function (ok) {
       showHint(ok
         ? 'Текст скопирован — вставьте его в мессенджер и поправьте, если нужно.'
@@ -434,7 +470,11 @@
     sheet: {
       open: openMsg,
       close: closeMsg,
-      ctx: function () { return msgCtx; }
+      ctx: function () { return msgCtx; },
+      /* Текущий (возможно, поправленный) текст поля — для проверок и тестов. */
+      text: currentText,
+      setText: setMsgText,
+      linkFor: linkFor
     }
   };
 
